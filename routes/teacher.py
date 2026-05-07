@@ -250,13 +250,17 @@ def register_student():
         if not enrollment_no: errs.append("Enrollment number is required.")
         if not full_name:     errs.append("Full name is required.")
         if not branch_code:   errs.append("Branch is required.")
-        if enrollment_no and db.execute(
-                "SELECT id FROM students WHERE enrollment_no=?", (enrollment_no,)).fetchone():
-            errs.append("This enrollment number is already registered.")
-        if email and db.execute("SELECT id FROM users WHERE email=?", (email,)).fetchone():
-            errs.append("This email is already associated with a user account.")
-        if email and db.execute("SELECT id FROM student_registrations WHERE email=? AND status='pending'", (email,)).fetchone():
-            errs.append("A pending registration with this email already exists.")
+        if enrollment_no and (
+            db.execute("SELECT id FROM students WHERE enrollment_no=?", (enrollment_no,)).fetchone() or
+            db.execute("SELECT id FROM student_registrations WHERE enrollment_no=?", (enrollment_no,)).fetchone()
+        ):
+            errs.append("This enrollment number is already registered or pending.")
+            
+        if email and (
+            db.execute("SELECT id FROM users WHERE email=?", (email,)).fetchone() or
+            db.execute("SELECT id FROM student_registrations WHERE email=?", (email,)).fetchone()
+        ):
+            errs.append("This email is already registered or pending.")
 
         if errs:
             for e in errs: flash(e, "danger")
@@ -405,8 +409,8 @@ def reject_student_reg(rid):
                (reason, dt.utcnow().strftime('%Y-%m-%d %H:%M:%S'), rid))
     db.commit()
     from utils.mailer import send_student_rejected
-    send_student_rejected(reg["email"], reg["full_name"], reason)
-    flash(f"Registration for '{reg['full_name']}' rejected.", "warning")
+    send_student_rejected(reg["email"], reg["name"], reason)
+    flash(f"Registration for '{reg['name']}' rejected.", "warning")
     return redirect(url_for("teacher.dashboard"))
 
 @teacher_bp.route("/reports")
@@ -544,6 +548,8 @@ def delete_student(sid):
     if not student:
         flash("Student not found.", "danger")
         return redirect(url_for("teacher.dashboard"))
+    # Delete associated records
+    db.execute("DELETE FROM student_registrations WHERE enrollment_no=?", (student["enrollment_no"],))
     db.execute("DELETE FROM users WHERE student_id=?", (sid,))
     db.execute("DELETE FROM students WHERE id=?", (sid,))
     db.commit()
@@ -565,6 +571,10 @@ def bulk_delete_students():
         row = db.execute("SELECT id FROM students WHERE id=? AND college_id=?",
                          (sid, u["college_id"])).fetchone()
         if row:
+            # We need the enrollment_no to delete from student_registrations
+            stu = dict_row(db.execute("SELECT enrollment_no FROM students WHERE id=?", (sid,)).fetchone())
+            if stu:
+                db.execute("DELETE FROM student_registrations WHERE enrollment_no=?", (stu["enrollment_no"],))
             db.execute("DELETE FROM users WHERE student_id=?", (sid,))
             db.execute("DELETE FROM students WHERE id=?", (sid,))
             deleted += 1

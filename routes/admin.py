@@ -265,7 +265,7 @@ def approve_student_reg(rid):
         (enrollment_no,name,branch,branch_code,programme,current_semester,
          college_id,college_code,gender,phone,last_synced)
         VALUES(?,?,?,?,?,?,?,?,?,?,?)""",
-        (reg["enrollment_no"], reg["full_name"], reg["branch"], reg["branch_code"],
+        (reg["enrollment_no"], reg["name"], reg["branch"], reg["branch_code"],
          reg["programme"], reg["semester"], reg["college_id"], reg["college_code"],
          reg.get("gender",""), reg.get("phone",""), now))
     stu = dict_row(db.execute("SELECT id FROM students WHERE enrollment_no=?",
@@ -280,15 +280,15 @@ def approve_student_reg(rid):
     db.execute("INSERT OR IGNORE INTO users(username,email,password,role,full_name,college_id,student_id,must_change_password) "
                "VALUES(?,?,?,?,?,?,?,1)",
                (username, reg["email"], generate_password_hash(raw_pwd),
-                "student", reg["full_name"], u["college_id"], stu["id"]))
+                "student", reg["name"], u["college_id"], stu["id"]))
     db.execute("UPDATE student_registrations SET status='approved',reviewed_at=? WHERE id=?",
                (now, rid))
     db.commit()
 
     from utils.mailer import send_student_approved
-    send_student_approved(reg["email"], reg["full_name"], username, raw_pwd,
+    send_student_approved(reg["email"], reg["name"], username, raw_pwd,
                           url_for("auth.login", _external=True))
-    flash(f"Student '{reg['full_name']}' approved. Login credentials have been sent to their email.", "success")
+    flash(f"Student '{reg['name']}' approved. Login credentials have been sent to their email.", "success")
     return redirect(url_for("admin.student_registrations"))
 
 
@@ -311,8 +311,8 @@ def reject_student_reg(rid):
                (reason, datetime.utcnow().isoformat(), rid))
     db.commit()
     from utils.mailer import send_student_rejected
-    send_student_rejected(reg["email"], reg["full_name"], reason)
-    flash(f"Registration for '{reg['full_name']}' rejected.", "warning")
+    send_student_rejected(reg["email"], reg["name"], reason)
+    flash(f"Registration for '{reg['name']}' rejected.", "warning")
     return redirect(url_for("admin.student_registrations"))
 
 

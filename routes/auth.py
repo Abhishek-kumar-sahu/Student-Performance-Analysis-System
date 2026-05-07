@@ -105,7 +105,7 @@ def login():
             return render_template("login.html")
 
         db   = get_db()
-        user = dict_row(db.execute("SELECT * FROM users WHERE username=?", (username,)).fetchone())
+        user = dict_row(db.execute("SELECT * FROM users WHERE username=? OR email=?", (username, username)).fetchone())
 
         if user and check_password_hash(user["password"], password):
             if user.get("is_active", 1) == 0:
@@ -114,25 +114,23 @@ def login():
 
             record_login_success(ip)    # clear failure counter
 
-            # Rotate session ID to prevent session fixation
-            session.clear()
-            session.permanent = True
+            # Set session variables
             for k in ["id","role","username","full_name","college_id","student_id","department"]:
                 session[k if k!="id" else "user_id"] = user.get(k)
             session["full_name"] = user.get("full_name") or user["username"]
 
-            if user.get("must_change_password"):
-                flash("⚠️ Your account uses a temporary password. Please change it now.", "warning")
-                change_pwd_url = {
-                    "super_admin": "super_admin.change_password",
-                    "admin":       "admin.change_password",
-                    "teacher":     "teacher.change_password",
-                    "student":     "student.change_password",
+            if user.get("must_change_password") == 1:
+                flash("Please change your password before continuing.", "info")
+                target = {
+                    "student": "student.change_password",
+                    "teacher": "teacher.change_password",
+                    "admin": "admin.change_password",
+                    "super_admin": "super_admin.change_password"
                 }.get(user["role"])
-                if change_pwd_url:
-                    return redirect(url_for(change_pwd_url))
-            else:
-                flash(f"Welcome back, {session['full_name']}!", "success")
+                if target:
+                    return redirect(url_for(target))
+            
+            flash(f"Welcome back, {session['full_name']}!", "success")
             return _redirect_role(user["role"])
 
         # ── Failed login ─────────────────────────────────────────────
@@ -268,12 +266,20 @@ def register_college():
         if db.execute("SELECT id FROM colleges WHERE college_code=?", (college_code,)).fetchone():
             flash("College code is already registered.", "danger")
             return render_template("register_college.html", form=f)
-        if db.execute("SELECT id FROM college_registrations WHERE college_code=? AND status='pending'", (college_code,)).fetchone():
-            flash("A pending registration for this college code already exists.", "warning")
-            return render_template("register_college.html", form=f)
+        existing = db.execute("SELECT id, status FROM college_registrations WHERE college_code=?", (college_code,)).fetchone()
+        if existing:
+            if existing["status"] == "pending":
+                flash("A pending registration for this college code already exists. Please wait for approval.", "warning")
+                return render_template("register_college.html", form=f)
+            elif existing["status"] == "approved":
+                flash("This college code is already approved and registered.", "danger")
+                return render_template("register_college.html", form=f)
+            else: # status is rejected
+                # Delete the rejected one so we can insert a fresh pending request
+                db.execute("DELETE FROM college_registrations WHERE id=?", (existing["id"],))
 
         db.execute("""INSERT INTO college_registrations
-            (college_name,college_code,university,city,state,contact_name,contact_email,contact_phone,website,message)
+            (college_name,college_code,university,city,state,admin_full_name,admin_email,contact_phone,website,message)
             VALUES(?,?,?,?,?,?,?,?,?,?)""",
             (college_name,college_code,university,city,state,contact_name,contact_email,contact_phone,website,message))
         db.commit()
@@ -322,14 +328,17 @@ def register_student():
         if not branch_code:   errs.append("Please select a branch.")
         if not college_id:    errs.append("Please select your college.")
 
-        if enrollment_no and db.execute("SELECT id FROM students WHERE enrollment_no=?", (enrollment_no,)).fetchone():
-            errs.append("This enrollment number is already registered. Contact admin if needed.")
-        if enrollment_no and db.execute("SELECT id FROM student_registrations WHERE enrollment_no=? AND status='pending'", (enrollment_no,)).fetchone():
-            errs.append("A pending registration for this enrollment number already exists.")
-        if email and db.execute("SELECT id FROM users WHERE email=?", (email,)).fetchone():
-            errs.append("This email is already associated with a user account.")
-        if email and db.execute("SELECT id FROM student_registrations WHERE email=? AND status='pending'", (email,)).fetchone():
-            errs.append("A pending registration with this email already exists.")
+        if enrollment_no and (
+            db.execute("SELECT id FROM students WHERE enrollment_no=?", (enrollment_no,)).fetchone() or
+            db.execute("SELECT id FROM student_registrations WHERE enrollment_no=?", (enrollment_no,)).fetchone()
+        ):
+            errs.append("This enrollment number is already registered or has a pending request.")
+
+        if email and (
+            db.execute("SELECT id FROM users WHERE email=?", (email,)).fetchone() or
+            db.execute("SELECT id FROM student_registrations WHERE email=?", (email,)).fetchone()
+        ):
+            errs.append("This email address is already registered or has a pending request.")
 
         if errs:
             for e in errs: flash(e, "danger")

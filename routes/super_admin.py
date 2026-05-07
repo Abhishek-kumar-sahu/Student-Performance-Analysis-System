@@ -76,7 +76,7 @@ def approve_registration(rid):
         username = f"{base}{idx}"; idx += 1
 
     # Check for duplicate email
-    email = reg.get("contact_email") or reg.get("admin_email")
+    email = reg.get("admin_email") or reg.get("contact_email")
     email = email if email else None
     
     if email and db.execute("SELECT id FROM users WHERE email=?", (email,)).fetchone():
@@ -87,15 +87,16 @@ def approve_registration(rid):
     db.execute("""INSERT INTO users(username,email,password,role,full_name,college_id,must_change_password)
         VALUES(?,?,?,?,?,?,1)""",
         (username, email, generate_password_hash(raw_password),
-         "admin", reg["contact_name"], col_id))
+         "admin", reg.get("admin_full_name") or reg.get("contact_name"), col_id))
     db.execute("UPDATE college_registrations SET status='approved',reviewed_at=? WHERE id=?",
                (datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S'), rid))
     db.commit()
 
     login_url = url_for("auth.login", _external=True)
-    send_registration_approved(reg["contact_email"], reg["college_name"],
+    contact_email = reg.get("admin_email") or reg.get("contact_email")
+    send_registration_approved(contact_email, reg["college_name"],
                                username, raw_password, login_url)
-    flash(f"✅ '{reg['college_name']}' approved. Credentials sent to {reg['contact_email']}.",
+    flash(f"✅ '{reg['college_name']}' approved. Credentials sent to {contact_email}.",
           "success")
     return redirect(url_for("super_admin.registrations"))
 
@@ -117,7 +118,7 @@ def reject_registration(rid):
         "UPDATE college_registrations SET status='rejected',reject_reason=?,reviewed_at=? WHERE id=?",
         (reason, datetime.utcnow().isoformat(), rid))
     db.commit()
-    send_registration_rejected(reg["contact_email"], reg["college_name"], reason)
+    send_registration_rejected(reg.get("admin_email") or reg.get("contact_email"), reg["college_name"], reason)
     flash(f"Registration for '{reg['college_name']}' rejected.", "warning")
     return redirect(url_for("super_admin.registrations"))
 

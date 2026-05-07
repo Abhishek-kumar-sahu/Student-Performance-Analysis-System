@@ -28,8 +28,8 @@
       </td>
       <td><span class="mono cyan">{{ r.college_code }}</span></td>
       <td>
-        <div class="fw600 text-sm">{{ r.contact_name }}</div>
-        <div class="text-dim text-xs">{{ r.contact_email }}</div>
+        <div class="fw600 text-sm">{{ r.admin_full_name }}</div>
+        <div class="text-dim text-xs">{{ r.admin_email }}</div>
         {% if r.contact_phone %}<div class="text-dim text-xs">{{ r.contact_phone }}</div>{% endif %}
       </td>
       <td class="text-dim text-sm">{{ r.city or '—' }}, {{ r.state or '' }}</td>
@@ -47,11 +47,16 @@
       <td>
         {% if r.status == 'pending' %}
         <div class="act-row">
-          <form method="POST" action="{{ url_for('super_admin.approve_registration', rid=r.id) }}" style="display:inline;">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <button type="submit" class="btn-cyan btn-sm" onclick="return confirm('Approve {{ r.college_name }}? Admin credentials will be emailed to {{ r.contact_email }}.')"><i class="fa-solid fa-check"></i> Approve</button>
-          </form>
-          <button class="btn-danger btn-sm" onclick="openRejectModal({{ r.id }},'{{ r.college_name }}')"><i class="fa-solid fa-xmark"></i> Reject</button>
+          <button type="button" class="btn-cyan btn-sm" 
+                  data-id="{{ r.id }}" data-name="{{ r.college_name }}" data-email="{{ r.admin_email }}"
+                  onclick="openApproveModal(this.dataset.id, this.dataset.name, this.dataset.email)">
+            <i class="fa-solid fa-check"></i> Approve
+          </button>
+          <button class="btn-danger btn-sm" 
+                  data-id="{{ r.id }}" data-name="{{ r.college_name }}"
+                  onclick="openRejectModal(this.dataset.id, this.dataset.name)">
+            <i class="fa-solid fa-xmark"></i> Reject
+          </button>
         </div>
         {% else %}
         <span class="text-dim text-xs mono">{{ (r.reviewed_at or '')[:10] }}</span>
@@ -66,14 +71,32 @@
   {% endif %}
 </div>
 
+{# Approve Modal #}
+<div class="spas-modal-overlay" id="approveModal" style="display:none;">
+  <div class="spas-modal-box" style="border-color:rgba(0,243,255,0.3);">
+    <div class="spas-modal-icon" style="color:var(--cyan);background:rgba(0,243,255,0.1);"><i class="fa-solid fa-circle-check"></i></div>
+    <div class="spas-modal-title">Confirm Approval</div>
+    <div class="spas-modal-msg" id="approveMsg" style="margin-bottom:20px; line-height:1.5;"></div>
+    <form method="POST" id="approveForm">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="spas-modal-actions">
+        <button type="submit" class="btn-cyan ripple-btn" style="padding: 10px 20px;">
+          <span class="btn-ic"><i class="fa-solid fa-check"></i></span> Confirm &amp; Approve
+        </button>
+        <button type="button" class="btn-ghost ripple-btn" onclick="closeApproveModal()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 {# Reject Modal — SPAS design system #}
 <div class="spas-modal-overlay" id="rejectModal" style="display:none;">
   <div class="spas-modal-box" style="border-color:rgba(239,68,68,0.3);">
-    <div class="spas-modal-icon"><i class="fa-solid fa-ban"></i></div>
+    <div class="spas-modal-icon" style="color:#ef4444;background:rgba(239,68,68,0.1);"><i class="fa-solid fa-ban"></i></div>
     <div class="spas-modal-title">Reject Registration</div>
-    <div class="spas-modal-msg" id="rejectCollegeName"></div>
+    <div class="spas-modal-msg" id="rejectCollegeName" style="margin-bottom:15px;font-weight:600;color:var(--cyan);"></div>
     <form method="POST" id="rejectForm">
-  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <div class="f-group" style="text-align:left;margin-bottom:18px;">
         <label class="f-label">Reason for Rejection <small style="color:#8b949e;">(emailed to contact)</small></label>
         <textarea name="reason" class="f-control" rows="3"
@@ -81,7 +104,7 @@
                   required style="resize:vertical;min-height:80px;"></textarea>
       </div>
       <div class="spas-modal-actions">
-        <button type="submit" class="btn-danger-spas ripple-btn">
+        <button type="submit" class="btn-danger-spas ripple-btn" style="padding: 10px 20px;">
           <span class="btn-ic"><i class="fa-solid fa-ban"></i></span> Reject &amp; Notify
         </button>
         <button type="button" class="btn-ghost ripple-btn" onclick="closeRejectModal()">Cancel</button>
@@ -95,6 +118,18 @@ function escHtml(s){
   if(s===null||s===undefined)return'';
   return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
+function openApproveModal(id, name, email) {
+  document.getElementById('approveMsg').innerHTML = `Approve <strong>${name}</strong>?<br><span class="text-dim text-xs">Admin credentials will be sent to ${email}</span>`;
+  document.getElementById('approveForm').action = '/superadmin/registrations/' + id + '/approve';
+  const modal = document.getElementById('approveModal');
+  modal.style.display = 'flex';
+  requestAnimationFrame(() => modal.classList.add('modal-open'));
+}
+function closeApproveModal() {
+  const modal = document.getElementById('approveModal');
+  modal.classList.remove('modal-open');
+  setTimeout(() => modal.style.display = 'none', 280);
+}
 function openRejectModal(id, name) {
   document.getElementById('rejectCollegeName').textContent = 'College: ' + name;
   document.getElementById('rejectForm').action = '/superadmin/registrations/' + id + '/reject';
@@ -107,8 +142,13 @@ function closeRejectModal() {
   modal.classList.remove('modal-open');
   setTimeout(() => modal.style.display = 'none', 280);
 }
-document.getElementById('rejectModal').addEventListener('click', e => {
-  if (e.target === e.currentTarget) closeRejectModal();
+document.querySelectorAll('.spas-modal-overlay').forEach(modal => {
+  modal.addEventListener('click', e => {
+    if (e.target === e.currentTarget) {
+      closeApproveModal();
+      closeRejectModal();
+    }
+  });
 });
 </script>
 {% endblock %}

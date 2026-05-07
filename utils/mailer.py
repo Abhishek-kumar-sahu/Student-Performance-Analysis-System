@@ -1,5 +1,5 @@
 """utils/mailer.py — SPAS v4 Email System (SMTP + console fallback)"""
-import os, smtplib, logging
+import os, smtplib, logging, html
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 from datetime import datetime
@@ -66,7 +66,10 @@ body{{background:#f0f4f8;font-family:'Segoe UI',Helvetica,Arial,sans-serif;color
   </div>
 </div></body></html>"""
 
-def send_email(to, subject, html, text=""):
+def send_email(to, subject, html_content, text=""):
+    if not to:
+        log.error("[Mailer] No recipient email provided.")
+        return False
     if not _is_configured():
         log.warning(f"[Mailer] SMTP not configured — printing to console")
         print(f"\n{'─'*65}")
@@ -82,7 +85,7 @@ def send_email(to, subject, html, text=""):
         msg["To"]      = to
         msg["Subject"] = subject
         if text: msg.attach(MIMEText(text, "plain"))
-        msg.attach(MIMEText(html, "html"))
+        msg.attach(MIMEText(html_content, "html"))
         with smtplib.SMTP(cfg["host"], cfg["port"], timeout=15) as s:
             s.ehlo(); s.starttls(); s.login(cfg["user"], cfg["password"])
             s.sendmail(cfg["user"], [to], msg.as_string())
@@ -125,13 +128,16 @@ def send_new_registration_to_superadmin(sa_email, reg, dashboard_url):
                       _base_template("New College Registration Request", content))
 
 def send_registration_approved(admin_email, college_name, username, password, login_url):
+    # Escape for HTML template
+    e_user = html.escape(str(username))
+    e_pass = html.escape(str(password))
     content = f"""
     <p>Great news! Your college registration on SPAS has been <strong style="color:#16a34a">approved</strong> by the Super Administrator.</p>
     <p>Your admin account credentials are below. Please sign in and change your password immediately.</p>
     <div class="info-box">
       <div class="info-row"><span class="info-label">College</span><span class="info-value">{college_name}</span></div>
-      <div class="info-row"><span class="info-label">Username</span><span class="info-value">{username}</span></div>
-      <div class="info-row"><span class="info-label">Temp Password</span><span class="info-value">{password}</span></div>
+      <div class="info-row"><span class="info-label">Username</span><span class="info-value">{e_user}</span></div>
+      <div class="info-row"><span class="info-label">Temp Password</span><span class="info-value">{e_pass}</span></div>
     </div>
     <div style="text-align:center"><a href="{login_url}" class="cta-btn">Sign In to SPAS →</a></div>
     <div class="warn-box"><i class="fa-solid fa-circle-info"></i> This is a temporary password. Use the <strong>Forgot Password</strong> link on login to set a permanent one. Never share these credentials.</div>
@@ -166,19 +172,22 @@ def send_student_registration_received(student_email, student_name, enrollment_n
                       _base_template("Registration Received", content))
 
 def send_student_approved(student_email, student_name, username, password, login_url):
+    # Escape for HTML
+    e_user = html.escape(str(username))
+    e_pass = html.escape(str(password))
     content = f"""
     <p>Hi <strong>{student_name}</strong>,</p>
     <p>Your student account on SPAS has been <strong style="color:#16a34a">approved</strong>! You can now log in and view your academic records.</p>
     <div class="info-box">
-      <div class="info-row"><span class="info-label">Username</span><span class="info-value">{username}</span></div>
-      <div class="info-row"><span class="info-label">Password</span><span class="info-value">{password}</span></div>
+      <div class="info-row"><span class="info-label">Username</span><span class="info-value">{e_user}</span></div>
+      <div class="info-row"><span class="info-label">Password</span><span class="info-value">{e_pass}</span></div>
     </div>
     <div style="text-align:center"><a href="{login_url}" class="cta-btn">Access My Academic Portal →</a></div>
     <div class="warn-box"><i class="fa-solid fa-key"></i> Please change your password after first login. Keep your credentials confidential.</div>
     """
     return send_email(student_email, "[SPAS] Your Student Account is Ready!",
                       _base_template("Account Approved", content),
-                      f"SPAS student account approved. Username: {username} | Login: {login_url}")
+                      f"SPAS student account approved. Username: {username} | Password: {password} | Login: {login_url}")
 
 def send_student_rejected(student_email, student_name, reason):
     content = f"""
@@ -193,30 +202,38 @@ def send_student_rejected(student_email, student_name, reason):
                       _base_template("Registration Not Approved", content))
 
 def send_teacher_created_student(student_email, student_name, enrollment_no, teacher_name, username, password, login_url):
+    # Escape for HTML
+    e_user = html.escape(str(username))
+    e_pass = html.escape(str(password))
     content = f"""
     <p>Hi <strong>{student_name}</strong>,</p>
     <p>Your teacher <strong>{teacher_name}</strong> has registered you on SPAS. Your account is ready to use.</p>
     <div class="info-box">
       <div class="info-row"><span class="info-label">Enrollment No.</span><span class="info-value">{enrollment_no}</span></div>
-      <div class="info-row"><span class="info-label">Username</span><span class="info-value">{username}</span></div>
-      <div class="info-row"><span class="info-label">Password</span><span class="info-value">{password}</span></div>
+      <div class="info-row"><span class="info-label">Username</span><span class="info-value">{e_user}</span></div>
+      <div class="info-row"><span class="info-label">Password</span><span class="info-value">{e_pass}</span></div>
     </div>
     <div style="text-align:center"><a href="{login_url}" class="cta-btn">Access My Academic Portal →</a></div>
     <div class="warn-box"><i class="fa-solid fa-key"></i> Please change your password after first login.</div>
     """
     return send_email(student_email, "[SPAS] Your Academic Portal Account is Ready",
                       _base_template("Account Created by Teacher", content),
-                      f"SPAS account created. Username: {username} | Login: {login_url}")
+                      f"SPAS account created. Username: {username} | Password: {password} | Login: {login_url}")
+
 def send_teacher_account_created(teacher_email, teacher_name, username, password, login_url):
+    # Escape for HTML
+    e_user = html.escape(str(username))
+    e_pass = html.escape(str(password))
     content = f"""
     <p>Hi <strong>{teacher_name}</strong>,</p>
     <p>Your college administrator has created a teacher account for you on SPAS. You can now log in to manage your classes and students.</p>
     <div class="info-box">
-      <div class="info-row"><span class="info-label">Username</span><span class="info-value">{username}</span></div>
-      <div class="info-row"><span class="info-label">Temporary Password</span><span class="info-value">{password}</span></div>
+      <div class="info-row"><span class="info-label">Username</span><span class="info-value">{e_user}</span></div>
+      <div class="info-row"><span class="info-label">Temporary Password</span><span class="info-value">{e_pass}</span></div>
     </div>
     <div class="warn-box"><i class="fa-solid fa-key"></i> Please change your password after first login.</div>
     """
     return send_email(teacher_email, "[SPAS] Your Teacher Account is Ready",
                       _base_template("Teacher Account Created", content),
                       f"SPAS account created. Username: {username} | Password: {password} | Login: {login_url}")
+

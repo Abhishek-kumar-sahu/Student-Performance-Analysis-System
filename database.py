@@ -94,10 +94,16 @@ CREATE TABLE IF NOT EXISTS college_registrations (
     id               INTEGER PRIMARY KEY AUTOINCREMENT,
     college_name     TEXT NOT NULL,
     college_code     TEXT UNIQUE NOT NULL,
+    university       TEXT DEFAULT 'RGPV Bhopal',
     city             TEXT,
-    admin_email      TEXT NOT NULL,
-    admin_full_name  TEXT NOT NULL,
+    state            TEXT DEFAULT 'Madhya Pradesh',
+    admin_full_name  TEXT,
+    admin_email      TEXT,
+    contact_phone    TEXT,
+    website          TEXT,
+    message          TEXT,
     status           TEXT DEFAULT 'pending',
+    reject_reason    TEXT,
     submitted_at     TEXT DEFAULT (datetime('now')),
     reviewed_at      TEXT
 );
@@ -312,6 +318,10 @@ def upgrade_db():
     # Student registrations table
     for col in ["parent_phone TEXT", "address TEXT", "semester INTEGER DEFAULT 1"]:
         try: conn.execute(f"ALTER TABLE student_registrations ADD COLUMN {col}")
+        except: pass
+    # College registrations table
+    for col in ["university TEXT", "state TEXT", "admin_full_name TEXT", "admin_email TEXT", "contact_phone TEXT", "website TEXT", "message TEXT", "reject_reason TEXT"]:
+        try: conn.execute(f"ALTER TABLE college_registrations ADD COLUMN {col}")
         except: pass
     # Notifications table
     try: conn.execute("ALTER TABLE notifications ADD COLUMN link TEXT")
