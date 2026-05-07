@@ -1,0 +1,174 @@
+{% extends 'base.html' %}
+{% block title %}AI Advisor{% endblock %}
+{% block page_title %}// AI Advisor{% endblock %}
+{% block content %}
+
+<div class="profile-banner mb-24">
+  <div class="profile-avatar">{{ student.name[0] }}</div>
+  <div class="profile-info">
+    <div class="profile-name">{{ student.name }}</div>
+    <div class="profile-enr">{{ student.enrollment_no }}</div>
+    <div class="profile-meta">
+      <span>🎓 {{ student.programme }} — {{ student.branch }}</span>
+      <span>📚 Semester {{ student.current_semester }}</span>
+    </div>
+  </div>
+  <div style="flex-shrink:0;">
+    <span class="badge badge-purple" style="font-size:.75rem;padding:6px 14px;">
+      🤖 SPAS AI Advisor
+    </span>
+  </div>
+</div>
+
+{# KPI row #}
+<div class="stats-row">
+  <div class="stat-card sc-blue">
+    <div class="s-icon">📊</div>
+    <div class="s-label">Avg Marks</div>
+    <div class="s-val">{{ "%.1f"|format(data.avg_marks or 0) }}%</div>
+  </div>
+  <div class="stat-card {% if (data.avg_attendance or 0) >= 75 %}sc-green{% else %}sc-red{% endif %}">
+    <div class="s-icon">📅</div>
+    <div class="s-label">Attendance</div>
+    <div class="s-val">{{ "%.1f"|format(data.avg_attendance or 0) }}%</div>
+    <div class="s-sub">{% if (data.avg_attendance or 0) < 75 %}⚠️ Below 75%{% else %}✅ OK{% endif %}</div>
+  </div>
+  <div class="stat-card sc-cyan">
+    <div class="s-icon">🎯</div>
+    <div class="s-label">Predicted GPA</div>
+    <div class="s-val" data-count="{{ prediction.predicted_gpa or 0 }}">{{ prediction.predicted_gpa or '—' }}</div>
+  </div>
+  <div class="stat-card {% if prediction.risk_level in ('high','critical') %}sc-red{% elif prediction.risk_level=='medium' %}sc-yellow{% else %}sc-green{% endif %}">
+    <div class="s-icon">⚡</div>
+    <div class="s-label">Risk Level</div>
+    <div class="s-val" style="font-size:1.1rem;text-transform:uppercase;">{{ prediction.risk_level or '—' }}</div>
+  </div>
+</div>
+
+<div class="grid-2 mb-20">
+  {# Chat Box #}
+  <div class="card" style="border-color:rgba(168,85,247,0.3);background:rgba(168,85,247,0.02);">
+    <div class="card-hdr" style="margin-bottom:16px;">
+      <div class="card-title">
+        <div class="card-title-icon" style="background:rgba(168,85,247,0.15);color:var(--purple);">🤖</div>
+        Chat with AI Advisor
+      </div>
+      <span class="text-dim text-xs">Ask anything about your academics</span>
+    </div>
+
+    <div class="chat-wrap" id="chatWrap">
+      <div class="chat-msg">
+        <div class="chat-avatar ai">AI</div>
+        <div class="chat-bubble ai">
+          Hello <strong>{{ student.name.split()[0] }}</strong>! 👋 I'm your SPAS AI Advisor.
+          I have access to your academic data — predicted GPA: <strong>{{ prediction.predicted_gpa or 'N/A' }}</strong>,
+          risk level: <strong style="text-transform:uppercase;color:{% if prediction.risk_level in ('high','critical') %}var(--red){% elif prediction.risk_level=='medium' %}var(--yellow){% else %}var(--green){% endif %};">{{ prediction.risk_level or 'N/A' }}</strong>.
+          Ask me anything!
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top:14px;display:flex;gap:8px;">
+      <input id="chatInput" type="text" class="f-control" placeholder="Ask about attendance, GPA, marks…" onkeydown="if(event.key==='Enter')sendChat()"/>
+      <button class="btn btn-primary btn-sm ripple-btn" onclick="sendChat()">Send</button>
+    </div>
+
+    <div style="margin-top:10px;display:flex;gap:6px;flex-wrap:wrap;">
+      <button class="btn btn-ghost btn-sm" onclick="quickAsk('What is my predicted GPA?')">📊 Predicted GPA</button>
+      <button class="btn btn-ghost btn-sm" onclick="quickAsk('How is my attendance?')">📅 Attendance</button>
+      <button class="btn btn-ghost btn-sm" onclick="quickAsk('Give me study recommendations')">💡 Recommendations</button>
+      <button class="btn btn-ghost btn-sm" onclick="quickAsk('What is my risk level?')">⚡ Risk Level</button>
+    </div>
+  </div>
+
+  {# Recommendations panel #}
+  <div class="card">
+    <div class="card-hdr" style="margin-bottom:14px;">
+      <div class="card-title">
+        <div class="card-title-icon" style="background:rgba(0,255,255,0.1);color:var(--accent);">💡</div>
+        AI Recommendations
+      </div>
+    </div>
+    {% if prediction.recommendations %}
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      {% for rec in prediction.recommendations %}
+      <div style="background:rgba(0,255,255,0.04);border:1px solid var(--border);border-left:3px solid var(--accent);border-radius:0 8px 8px 0;padding:10px 14px;font-size:.8rem;color:var(--text);">
+        {{ rec }}
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:24px;"><p>Great job! No specific recommendations at this time.</p></div>
+    {% endif %}
+
+    <div style="margin-top:20px;padding-top:14px;border-top:1px solid var(--border);">
+      <div class="sec-title">Performance Data</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;font-size:.78rem;">
+        <div style="background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:7px;padding:10px;text-align:center;">
+          <div style="color:var(--text-dim);font-size:.65rem;text-transform:uppercase;margin-bottom:4px;">Failed Subjects</div>
+          <div style="font-size:1.2rem;font-weight:800;color:{% if (data.failed_subjects or 0) > 0 %}var(--red){% else %}var(--green){% endif %};">{{ data.failed_subjects or 0 }}</div>
+        </div>
+        <div style="background:rgba(0,0,0,0.25);border:1px solid var(--border);border-radius:7px;padding:10px;text-align:center;">
+          <div style="color:var(--text-dim);font-size:.65rem;text-transform:uppercase;margin-bottom:4px;">Semester</div>
+          <div style="font-size:1.2rem;font-weight:800;color:var(--accent);">{{ data.current_semester or student.current_semester }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+function quickAsk(q){document.getElementById('chatInput').value=q;sendChat();}
+
+async function sendChat(){
+  const inp=document.getElementById('chatInput');
+  const q=inp.value.trim();
+  if(!q)return;
+  inp.value='';
+
+  function escHtml(s){
+  if(s===null||s===undefined)return'';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+  const wrap=document.getElementById('chatWrap');
+
+  // User bubble
+  const userDiv=document.createElement('div');
+  userDiv.className='chat-msg user';
+  // Use textContent for user input to prevent XSS
+  const avatarU = document.createElement('div'); avatarU.className='chat-avatar user'; avatarU.textContent='Me';
+  const bubbleU = document.createElement('div'); bubbleU.className='chat-bubble user'; bubbleU.textContent=q;
+  userDiv.append(avatarU, bubbleU);
+  wrap.appendChild(userDiv);
+
+  // Typing indicator
+  const typingDiv=document.createElement('div');
+  typingDiv.className='chat-msg';
+  typingDiv.innerHTML=`<div class="chat-avatar ai">AI</div><div class="chat-bubble ai"><div class="chat-typing"><div class="dot"></div><div class="dot"></div><div class="dot"></div></div></div>`;
+  wrap.appendChild(typingDiv);
+  wrap.scrollTop=wrap.scrollHeight;
+
+  try{
+    const r=await fetch('/student/ai-advisor/ask',{
+      method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')||''},
+      body:JSON.stringify({question:q})
+    });
+    const d=await r.json();
+    typingDiv.remove();
+    const aiDiv=document.createElement('div');
+    aiDiv.className='chat-msg';
+    aiDiv.innerHTML=`<div class="chat-avatar ai">AI</div><div class="chat-bubble ai">${d.answer}</div>`;
+    wrap.appendChild(aiDiv);
+  }catch(e){
+    typingDiv.remove();
+    const errDiv=document.createElement('div');
+    errDiv.className='chat-msg';
+    errDiv.innerHTML=`<div class="chat-avatar ai">AI</div><div class="chat-bubble ai" style="color:var(--red);">Error connecting to AI. Try again.</div>`;
+    wrap.appendChild(errDiv);
+  }
+  wrap.scrollTop=wrap.scrollHeight;
+}
+</script>
+{% endblock %}

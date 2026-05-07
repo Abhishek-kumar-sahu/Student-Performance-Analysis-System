@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% block title %}Audit Log{% endblock %}
+{% block page_title %}// Audit Log{% endblock %}
+{% block content %}
+
+{# ── Stats Row ── #}
+<div class="stats-row mb-20">
+  <div class="stat-card sc-blue">
+    <div class="s-icon">📋</div>
+    <div class="s-label">Total Requests (24h)</div>
+    <div class="s-val">{{ stats.total_today or 0 }}</div>
+    <div class="s-sub">All roles</div>
+  </div>
+  <div class="stat-card {% if (stats.errors_today or 0) > 10 %}sc-red{% else %}sc-green{% endif %}">
+    <div class="s-icon">⚠️</div>
+    <div class="s-label">Errors (24h)</div>
+    <div class="s-val">{{ stats.errors_today or 0 }}</div>
+    <div class="s-sub">4xx + 5xx responses</div>
+  </div>
+  <div class="stat-card sc-cyan">
+    <div class="s-icon">⚡</div>
+    <div class="s-label">Avg Latency (24h)</div>
+    <div class="s-val">{{ '%.0f'|format(stats.avg_latency or 0) }} ms</div>
+    <div class="s-sub">Response time</div>
+  </div>
+  <div class="stat-card sc-purple">
+    <div class="s-icon">🔢</div>
+    <div class="s-label">Total Records</div>
+    <div class="s-val">{{ total }}</div>
+    <div class="s-sub">Matching filter</div>
+  </div>
+</div>
+
+{# ── Filters ── #}
+<form method="GET" action="{{ url_for('super_admin.audit_log') }}" style="margin-bottom:16px;">
+  <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;">
+    <div style="flex:1;min-width:160px;">
+      <label style="font-size:.76rem;color:#8b949e;display:block;margin-bottom:4px;">Role</label>
+      <select name="role" class="form-control" style="padding:7px 10px;font-size:.83rem;">
+        <option value="">All Roles</option>
+        {% for r in ['super_admin','admin','teacher','student'] %}
+        <option value="{{ r }}" {% if role_f==r %}selected{% endif %}>{{ r }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div style="flex:1;min-width:180px;">
+      <label style="font-size:.76rem;color:#8b949e;display:block;margin-bottom:4px;">Action / Endpoint</label>
+      <input type="text" name="action" class="form-control" style="padding:7px 10px;font-size:.83rem;"
+             value="{{ action_f }}" placeholder="e.g. /upload, /student">
+    </div>
+    <div style="flex:1;min-width:160px;">
+      <label style="font-size:.76rem;color:#8b949e;display:block;margin-bottom:4px;">Username</label>
+      <input type="text" name="username" class="form-control" style="padding:7px 10px;font-size:.83rem;"
+             value="{{ user_f }}" placeholder="Search username…">
+    </div>
+    <button type="submit" class="btn btn-primary" style="padding:7px 16px;font-size:.83rem;">🔍 Filter</button>
+    <a href="{{ url_for('super_admin.audit_log') }}" class="btn btn-outline" style="padding:7px 12px;font-size:.83rem;">✕ Clear</a>
+  </div>
+</form>
+
+{# ── Table ── #}
+<div class="table-wrap">
+  <table class="data-table" style="font-size:.8rem;">
+    <thead>
+      <tr>
+        <th>Timestamp</th>
+        <th>User</th>
+        <th>Role</th>
+        <th>Method</th>
+        <th>Endpoint</th>
+        <th>Status</th>
+        <th>Latency</th>
+        <th>IP</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for log in logs %}
+      <tr style="{% if log.status_code and log.status_code >= 500 %}background:rgba(239,68,68,.05){% elif log.status_code and log.status_code >= 400 %}background:rgba(245,158,11,.03){% endif %}">
+        <td style="color:#8b949e;white-space:nowrap;">{{ log.created_at[:19] if log.created_at else '—' }}</td>
+        <td style="color:#00cccc;">{{ log.username or '<anon>' }}</td>
+        <td>
+          {% set rc = {'super_admin':'#f59e0b','admin':'#3b82f6','teacher':'#10b981','student':'#a855f7'} %}
+          <span style="font-size:.73rem;padding:2px 7px;border-radius:4px;
+                background:rgba({% if log.role == 'admin' %}59,130,246{% elif log.role == 'teacher' %}16,185,129{% elif log.role == 'student' %}168,85,247{% elif log.role == 'super_admin' %}245,158,11{% else %}139,148,158{% endif %},.12);
+                color:{{ rc.get(log.role, '#8b949e') }};">
+            {{ log.role or '—' }}
+          </span>
+        </td>
+        <td>
+          {% set mc = {'GET':'#3b82f6','POST':'#10b981','PUT':'#f59e0b','DELETE':'#ef4444','PATCH':'#a855f7'} %}
+          <code style="font-size:.74rem;color:{{ mc.get(log.method,'#8b949e') }};">{{ log.method or '—' }}</code>
+        </td>
+        <td style="max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ log.endpoint }}">
+          {{ log.endpoint or '—' }}
+        </td>
+        <td>
+          {% if log.status_code %}
+          <span style="font-weight:600;color:{% if log.status_code >= 500 %}#ef4444{% elif log.status_code >= 400 %}#f59e0b{% elif log.status_code >= 300 %}#00cccc{% else %}#10b981{% endif %};">
+            {{ log.status_code }}
+          </span>
+          {% else %}—{% endif %}
+        </td>
+        <td style="color:{% if (log.latency_ms or 0) > 1000 %}#ef4444{% elif (log.latency_ms or 0) > 500 %}#f59e0b{% else %}#8b949e{% endif %};">
+          {{ log.latency_ms or 0 }} ms
+        </td>
+        <td style="color:#8b949e;font-size:.74rem;">{{ log.ip_address or '—' }}</td>
+      </tr>
+      {% else %}
+      <tr><td colspan="8" style="text-align:center;padding:32px;color:#8b949e;">No audit records found.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+
+{# ── Pagination ── #}
+{% if pages > 1 %}
+<div style="display:flex;gap:6px;margin-top:16px;justify-content:center;flex-wrap:wrap;">
+  {% if page > 1 %}
+  <a href="{{ url_for('super_admin.audit_log', page=page-1, role=role_f, action=action_f, username=user_f) }}"
+     class="btn btn-outline" style="padding:5px 12px;font-size:.8rem;">← Prev</a>
+  {% endif %}
+  {% for p in range([1, page-2]|max, [pages+1, page+3]|min) %}
+  <a href="{{ url_for('super_admin.audit_log', page=p, role=role_f, action=action_f, username=user_f) }}"
+     class="btn {% if p == page %}btn-primary{% else %}btn-outline{% endif %}"
+     style="padding:5px 10px;font-size:.8rem;">{{ p }}</a>
+  {% endfor %}
+  {% if page < pages %}
+  <a href="{{ url_for('super_admin.audit_log', page=page+1, role=role_f, action=action_f, username=user_f) }}"
+     class="btn btn-outline" style="padding:5px 12px;font-size:.8rem;">Next →</a>
+  {% endif %}
+</div>
+<div style="text-align:center;margin-top:8px;font-size:.76rem;color:#8b949e;">
+  Page {{ page }} of {{ pages }} · {{ total }} total records
+</div>
+{% endif %}
+{% endblock %}

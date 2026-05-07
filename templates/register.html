@@ -1,0 +1,306 @@
+{% extends 'base.html' %}
+{% block title %}Register — SPAS{% endblock %}
+{% block full_page %}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+.rp-root{position:fixed;inset:0;background:#030f1c;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;overflow-x:hidden;padding:32px 16px 48px;}
+#rpCanvas{position:fixed;inset:0;opacity:1;pointer-events:none;}
+.rp-glow{position:fixed;inset:0;background:radial-gradient(ellipse 60% 50% at 50% 40%,rgba(0,210,180,.06) 0%,transparent 65%);pointer-events:none;}
+.rp-scan{position:fixed;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,210,180,.55),transparent);animation:rpScan 7s ease-in-out infinite;pointer-events:none;}
+@keyframes rpScan{0%{top:-1px;opacity:0}4%{opacity:1}95%{opacity:.4}100%{top:100%;opacity:0}}
+.rp-brk{position:fixed;width:44px;height:44px;opacity:.45;pointer-events:none;}
+.rp-brk.tl{top:16px;left:16px;border-top:2px solid rgba(0,210,180,.7);border-left:2px solid rgba(0,210,180,.7)}
+.rp-brk.tr{top:16px;right:16px;border-top:2px solid rgba(0,210,180,.7);border-right:2px solid rgba(0,210,180,.7)}
+.rp-brk.bl{bottom:16px;left:16px;border-bottom:2px solid rgba(0,210,180,.7);border-left:2px solid rgba(0,210,180,.7)}
+.rp-brk.br{bottom:16px;right:16px;border-bottom:2px solid rgba(0,210,180,.7);border-right:2px solid rgba(0,210,180,.7)}
+
+.rp-card{position:relative;z-index:20;background:rgba(3,18,35,.82);border:1px solid rgba(0,210,180,.2);border-radius:18px;padding:34px 30px;width:100%;max-width:520px;backdrop-filter:blur(18px);box-shadow:0 0 60px rgba(0,210,180,.1),0 0 120px rgba(0,210,180,.04),inset 0 0 40px rgba(0,210,180,.02);margin:auto;}
+.rp-card::before{content:'';position:absolute;top:0;left:12%;right:12%;height:1px;background:linear-gradient(90deg,transparent,rgba(0,210,180,.5),transparent);border-radius:50%;}
+
+.rp-brand{text-align:center;margin-bottom:22px;}
+.rp-icon{display:inline-flex;align-items:center;justify-content:center;width:56px;height:56px;background:linear-gradient(135deg,rgba(0,210,180,.10),rgba(0,100,255,.06));border:1.5px solid rgba(0,210,180,.35);border-radius:14px;margin-bottom:10px;box-shadow:0 0 20px rgba(0,210,180,.18);animation:iconG 3s ease-in-out infinite;overflow:hidden;}
+@keyframes iconG{0%,100%{box-shadow:0 0 18px rgba(0,210,180,.2)}50%{box-shadow:0 0 38px rgba(0,210,180,.45)}}
+.rp-title{font-family:'Orbitron',sans-serif;font-size:1.25rem;font-weight:900;color:#fff;letter-spacing:.09em;text-shadow:0 0 18px rgba(0,210,180,.4);}
+.rp-title em{color:#00d2b4;font-style:normal;}
+.rp-sub{font-family:'Share Tech Mono',monospace;font-size:.6rem;color:rgba(0,210,180,.45);letter-spacing:.18em;margin-top:5px;}
+
+/* Flash */
+.rp-flash{padding:10px 14px;border-radius:8px;font-size:.77rem;margin-bottom:12px;border:1px solid transparent;font-family:'Share Tech Mono',monospace;}
+.rp-flash.success,.rp-flash.info{background:rgba(0,210,180,.06);border-color:rgba(0,210,180,.25);color:#00d2b4;}
+.rp-flash.danger,.rp-flash.error{background:rgba(255,60,60,.07);border-color:rgba(255,60,60,.3);color:#ff6b6b;}
+.rp-flash.warning{background:rgba(255,200,0,.06);border-color:rgba(255,200,0,.25);color:#ffd700;}
+
+/* Choice cards */
+.rp-choices{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:22px;}
+.rp-choice{background:rgba(0,0,0,.3);border:1.5px solid rgba(0,210,180,.18);border-radius:12px;padding:22px 14px;text-align:center;cursor:pointer;transition:all .25s;display:flex;flex-direction:column;align-items:center;gap:6px;width:100%;}
+.rp-choice:hover,.rp-choice.active{border-color:rgba(0,210,180,.6);background:rgba(0,210,180,.06);box-shadow:0 0 20px rgba(0,210,180,.15);}
+.rp-choice.blue:hover,.rp-choice.blue.active{border-color:rgba(88,166,255,.6);background:rgba(88,166,255,.06);box-shadow:0 0 20px rgba(88,166,255,.15);}
+.rp-choice-icon{font-size:2rem;}
+.rp-choice-title{font-family:'Orbitron',sans-serif;font-size:.76rem;font-weight:700;color:#fff;letter-spacing:.06em;}
+.rp-choice-desc{font-size:.65rem;color:rgba(255,255,255,.35);line-height:1.4;}
+
+/* Panels */
+.rp-panel{display:none;animation:panelIn .3s ease;}
+.rp-panel.active{display:block;}
+@keyframes panelIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* Form elements */
+.rp-label{display:block;font-size:.68rem;font-family:'Share Tech Mono',monospace;color:rgba(0,210,180,.6);letter-spacing:.12em;text-transform:uppercase;margin-bottom:6px;}
+.rp-input{width:100%;background:rgba(0,0,0,.45);border:1px solid rgba(0,210,180,.2);border-radius:8px;color:#dff8f5;padding:10px 13px;font-size:.86rem;font-family:'Share Tech Mono',monospace;transition:border-color .22s,box-shadow .22s;outline:none;}
+.rp-input:focus{border-color:rgba(0,210,180,.6);box-shadow:0 0 0 3px rgba(0,210,180,.1);}
+.rp-input::placeholder{color:rgba(255,255,255,.18);}
+.rp-input option{background:#02111f;color:#dff8f5;}
+.rp-sel{position:relative;}
+.rp-sel::after{content:"▾";position:absolute;right:12px;top:50%;transform:translateY(-50%);color:rgba(0,210,180,.55);pointer-events:none;font-size:.72rem;}
+.rp-sel select{appearance:none;-webkit-appearance:none;padding-right:34px;cursor:pointer;}
+.rp-group{margin-bottom:14px;}
+.rp-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media(max-width:480px){.rp-row{grid-template-columns:1fr;}}
+
+/* Section divider */
+.rp-divider{font-size:.62rem;font-family:'Share Tech Mono',monospace;color:rgba(0,210,180,.4);letter-spacing:.15em;text-transform:uppercase;padding:10px 0 4px;border-top:1px solid rgba(0,210,180,.1);margin-top:6px;}
+
+/* Info box */
+.rp-info{background:rgba(0,210,180,.04);border:1px solid rgba(0,210,180,.15);border-radius:8px;padding:11px 13px;margin:8px 0 16px;font-size:.71rem;color:rgba(255,255,255,.4);line-height:1.6;}
+
+/* Submit button */
+.rp-submit{width:100%;padding:13px;border:none;border-radius:10px;cursor:pointer;background:linear-gradient(135deg,rgba(0,210,180,.2),rgba(0,100,255,.12));border:1.5px solid rgba(0,210,180,.5);color:#00d2b4;font-family:'Orbitron',sans-serif;font-size:.8rem;font-weight:700;letter-spacing:.1em;transition:all .3s cubic-bezier(.34,1.56,.64,1);box-shadow:0 0 20px rgba(0,210,180,.15);display:flex;align-items:center;justify-content:center;gap:10px;margin-top:4px;}
+.rp-submit:hover{background:linear-gradient(135deg,rgba(0,210,180,.3),rgba(0,100,255,.2));box-shadow:0 0 40px rgba(0,210,180,.4);transform:translateY(-2px);border-color:rgba(0,210,180,.85);}
+.rp-submit.blue{border-color:rgba(88,166,255,.5);color:#58a6ff;background:linear-gradient(135deg,rgba(88,166,255,.18),rgba(0,50,160,.1));box-shadow:0 0 20px rgba(88,166,255,.12);}
+.rp-submit.blue:hover{background:linear-gradient(135deg,rgba(88,166,255,.28),rgba(0,50,160,.18));box-shadow:0 0 40px rgba(88,166,255,.35);border-color:rgba(88,166,255,.85);}
+
+/* Back link */
+.rp-back{background:none;border:none;color:rgba(0,210,180,.5);cursor:pointer;font-size:.72rem;font-family:'Share Tech Mono',monospace;padding:0;transition:color .2s;letter-spacing:.05em;}
+.rp-back:hover{color:#00d2b4;}
+
+/* Footer links */
+.rp-links{margin-top:18px;text-align:center;font-size:.7rem;font-family:'Share Tech Mono',monospace;color:rgba(255,255,255,.25);display:flex;gap:8px;justify-content:center;flex-wrap:wrap;}
+.rp-links a{color:rgba(0,210,180,.6);text-decoration:none;transition:color .2s;}
+.rp-links a:hover{color:#00d2b4;}
+.rp-links span{color:rgba(255,255,255,.12);}
+</style>
+
+<div class="rp-root">
+  <canvas id="rpCanvas"></canvas>
+  <div class="rp-glow"></div>
+  <div class="rp-scan"></div>
+  <div class="rp-brk tl"></div><div class="rp-brk tr"></div>
+  <div class="rp-brk bl"></div><div class="rp-brk br"></div>
+
+  <div class="rp-card">
+    <!-- Brand -->
+    <div class="rp-brand">
+      <div><div class="rp-icon"><img src="{{ url_for('static', filename='images/SPAS_logo.png') }}" alt="SPAS Logo" style="width:40px;height:40px;object-fit:contain;filter:drop-shadow(0 0 8px rgba(0,210,180,.5));"></div></div>
+      <div class="rp-title">SP<em>AS</em></div>
+      <div class="rp-sub">Join the Platform</div>
+    </div>
+
+    <!-- Flash -->
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% if msgs %}{% for cat,msg in msgs %}
+    <div class="rp-flash {{ cat }}">{{ msg }}</div>
+    {% endfor %}{% endif %}
+    {% endwith %}
+
+    <!-- Choice cards -->
+    <div class="rp-choices" id="rpChoices">
+      <button type="button" class="rp-choice" id="cardS" onclick="showPanel('student')">
+        <div class="rp-choice-icon"><i class="fa-solid fa-user-graduate"></i></div>
+        <div class="rp-choice-title">Student</div>
+        <div class="rp-choice-desc">Enroll in your college and track your academic performance</div>
+      </button>
+      <button type="button" class="rp-choice blue" id="cardC" onclick="showPanel('college')">
+        <div class="rp-choice-icon"><i class="fa-solid fa-building-columns"></i></div>
+        <div class="rp-choice-title">College</div>
+        <div class="rp-choice-desc">Onboard your institution to SPAS for student management</div>
+      </button>
+    </div>
+
+    <!-- ═══ STUDENT PANEL ═══ -->
+    <div class="rp-panel" id="panelStudent">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(0,210,180,.12);">
+        <button type="button" class="rp-back" onclick="showPanel(null)">← Back</button>
+        <div style="flex:1;text-align:center;font-family:'Orbitron',sans-serif;font-size:.78rem;font-weight:700;color:#00d2b4;letter-spacing:.08em;"><i class="fa-solid fa-user-graduate"></i> Student Registration</div>
+      </div>
+      <form method="POST" action="{{ url_for('auth.register_student') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="rp-row">
+          <div class="rp-group" style="grid-column:1/-1;">
+            <label class="rp-label">Enrollment Number *</label>
+            <input type="text" name="enrollment_no" class="rp-input" placeholder="e.g. 0901CS211001" required style="text-transform:uppercase;" value="{{ form.get('enrollment_no','') if form else '' }}"/>
+          </div>
+        </div>
+        <div class="rp-row">
+          <div class="rp-group" style="grid-column:1/-1;">
+            <label class="rp-label">Full Name *</label>
+            <input type="text" name="full_name" class="rp-input" placeholder="Enter your full name" required value="{{ form.get('full_name','') if form else '' }}"/>
+          </div>
+        </div>
+        <div class="rp-row">
+          <div class="rp-group">
+            <label class="rp-label">Email *</label>
+            <input type="email" name="email" class="rp-input" placeholder="your@email.com" required value="{{ form.get('email','') if form else '' }}"/>
+          </div>
+          <div class="rp-group">
+            <label class="rp-label">Phone</label>
+            <input type="tel" name="phone" class="rp-input" placeholder="10-digit mobile" value="{{ form.get('phone','') if form else '' }}"/>
+          </div>
+        </div>
+        <div class="rp-group">
+          <label class="rp-label">Your College *</label>
+          <div class="rp-sel">
+            <select name="college_id" class="rp-input" required>
+              <option value="">— Select your college —</option>
+              {% for col in colleges %}
+              <option value="{{ col.id }}" {% if form and form.get('college_id')|string==col.id|string %}selected{% endif %}>{{ col.name }} ({{ col.college_code }})</option>
+              {% endfor %}
+            </select>
+          </div>
+          {% if not colleges %}<div style="font-size:.68rem;color:#ffd700;margin-top:4px;"><i class="fa-solid fa-triangle-exclamation"></i> No colleges registered yet.</div>{% endif %}
+        </div>
+        <div class="rp-row">
+          <div class="rp-group">
+            <label class="rp-label">Programme</label>
+            <div class="rp-sel">
+              <select name="programme" class="rp-input" id="reg-programme">
+                <option value="">— Select Programme —</option>
+                {% for key, data in programme_branches.items() %}
+                <option value="{{ key }}" {% if form and form.get('programme')==key %}selected{% endif %}>{{ data.label }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          <div class="rp-group">
+            <label class="rp-label">Branch *</label>
+            <div class="rp-sel">
+              <select name="branch_code" class="rp-input" id="reg-branch" required>
+                <option value="">— Select Programme first —</option>
+                {% for key, data in programme_branches.items() %}
+                <optgroup label="{{ data.label }}" data-prog="{{ key }}">
+                  {% for code, name in data.branches %}
+                  <option value="{{ code }}" {% if form and form.get('branch_code')==code %}selected{% endif %}>{{ name }}</option>
+                  {% endfor %}
+                </optgroup>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+        <div class="rp-row">
+          <div class="rp-group">
+            <label class="rp-label">Semester *</label>
+            <div class="rp-sel"><select name="semester" class="rp-input" required>{% for s in range(1,9) %}<option value="{{ s }}">Semester {{ s }}</option>{% endfor %}</select></div>
+          </div>
+          <div class="rp-group">
+            <label class="rp-label">Gender</label>
+            <div class="rp-sel"><select name="gender" class="rp-input"><option value="">Prefer not to say</option><option value="Male">Male</option><option value="Female">Female</option><option value="Other">Other</option></select></div>
+          </div>
+        </div>
+        <div class="rp-info"><i class="fa-solid fa-circle-info"></i> After submitting, your college admin will review and send login credentials to your email.</div>
+        <button type="submit" class="rp-submit"><i class="fa-solid fa-paper-plane"></i> Submit Registration</button>
+      </form>
+    </div>
+
+    <!-- ═══ COLLEGE PANEL ═══ -->
+    <div class="rp-panel" id="panelCollege">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid rgba(88,166,255,.12);">
+        <button type="button" class="rp-back" style="color:rgba(88,166,255,.5);" onclick="showPanel(null)">← Back</button>
+        <div style="flex:1;text-align:center;font-family:'Orbitron',sans-serif;font-size:.78rem;font-weight:700;color:#58a6ff;letter-spacing:.08em;"><i class="fa-solid fa-building-columns"></i> College Registration</div>
+      </div>
+      <form method="POST" action="{{ url_for('auth.register_college') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <div class="rp-group"><label class="rp-label">College Name *</label><input type="text" name="college_name" class="rp-input" placeholder="Full official college name" required/></div>
+        <div class="rp-row">
+          <div class="rp-group"><label class="rp-label">College Code *</label><input type="text" name="college_code" class="rp-input" placeholder="e.g. 0901" required style="text-transform:uppercase;" maxlength="10"/></div>
+          <div class="rp-group"><label class="rp-label">University</label><input type="text" name="university" class="rp-input" value="RGPV Bhopal"/></div>
+        </div>
+        <div class="rp-row">
+          <div class="rp-group"><label class="rp-label">City</label><input type="text" name="city" class="rp-input" placeholder="City"/></div>
+          <div class="rp-group"><label class="rp-label">State</label><input type="text" name="state" class="rp-input" value="Madhya Pradesh"/></div>
+        </div>
+        <div class="rp-divider">Contact Person</div>
+        <div class="rp-group"><label class="rp-label">Contact Name *</label><input type="text" name="contact_name" class="rp-input" placeholder="Principal / Admin name" required/></div>
+        <div class="rp-row">
+          <div class="rp-group"><label class="rp-label">Email *</label><input type="email" name="contact_email" class="rp-input" placeholder="official@college.edu" required/></div>
+          <div class="rp-group"><label class="rp-label">Phone</label><input type="tel" name="contact_phone" class="rp-input" placeholder="10-digit number"/></div>
+        </div>
+        <div class="rp-group"><label class="rp-label">Website</label><input type="url" name="website" class="rp-input" placeholder="https://www.college.edu"/></div>
+        <div class="rp-group"><label class="rp-label">Message <span style="font-size:.6rem;color:rgba(255,255,255,.2);">(optional)</span></label><textarea name="message" class="rp-input" rows="2" placeholder="Additional info for Super Admin" style="resize:vertical;"></textarea></div>
+        <div class="rp-info" style="background:rgba(88,166,255,.04);border-color:rgba(88,166,255,.15);"><i class="fa-solid fa-circle-info"></i> After Super Admin approval you'll receive admin login credentials via email.</div>
+        <button type="submit" class="rp-submit blue"><i class="fa-solid fa-building-shield"></i> Submit College Registration</button>
+      </form>
+    </div>
+
+    <div class="rp-links">
+      Already registered? <a href="{{ url_for('auth.login') }}">Sign In <i class="fa-solid fa-arrow-right"></i></a>
+      <span>·</span>
+      <a href="{{ url_for('auth.splash') }}" style="color:rgba(255,255,255,.2);">← Home</a>
+    </div>
+  </div>
+</div>
+
+<script>
+function showPanel(which){
+  const choices=document.getElementById('rpChoices');
+  const ps=document.getElementById('panelStudent');
+  const pc=document.getElementById('panelCollege');
+  ps.classList.remove('active'); pc.classList.remove('active');
+  document.getElementById('cardS').classList.remove('active');
+  document.getElementById('cardC').classList.remove('active');
+  if(which==='student'){choices.style.display='none';ps.classList.add('active');document.getElementById('cardS').classList.add('active');}
+  else if(which==='college'){choices.style.display='none';pc.classList.add('active');document.getElementById('cardC').classList.add('active');}
+  else{choices.style.display='grid';}
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  const p=new URLSearchParams(window.location.search);
+  if(p.get('type')==='college') showPanel('college');
+  else if(p.get('type')==='student') showPanel('student');
+});
+
+/* Particle network */
+(function(){
+  const c=document.getElementById('rpCanvas');
+  const ctx=c.getContext('2d');
+  let W,H,pts=[];
+  const N=60,D=130;
+  function resize(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;}
+  function P(){this.x=Math.random()*W;this.y=Math.random()*H;this.vx=(Math.random()-.5)*.45;this.vy=(Math.random()-.5)*.45;this.r=Math.random()*1.8+.8;this.a=Math.random()*.4+.15;this.t=Math.random()*Math.PI*2;}
+  P.prototype.u=function(){this.t+=.018;this.x+=this.vx;this.y+=this.vy;if(this.x<0||this.x>W)this.vx*=-1;if(this.y<0||this.y>H)this.vy*=-1;};
+  P.prototype.d=function(){const a=this.a*(0.7+0.3*Math.sin(this.t));ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);ctx.fillStyle=`rgba(0,210,180,${a})`;ctx.fill();};
+  function draw(){
+    ctx.clearRect(0,0,W,H);
+    for(let i=0;i<pts.length;i++){for(let j=i+1;j<pts.length;j++){const dx=pts[i].x-pts[j].x,dy=pts[i].y-pts[j].y,d=Math.sqrt(dx*dx+dy*dy);if(d<D){const a=(1-d/D)*.15;ctx.beginPath();ctx.moveTo(pts[i].x,pts[i].y);ctx.lineTo(pts[j].x,pts[j].y);ctx.strokeStyle=`rgba(0,210,180,${a})`;ctx.lineWidth=.7;ctx.stroke();}}}
+    pts.forEach(p=>{p.u();p.d();});
+    requestAnimationFrame(draw);
+  }
+  resize();pts=Array.from({length:N},()=>new P());draw();
+  window.addEventListener('resize',()=>{resize();pts=Array.from({length:N},()=>new P());});
+})();
+
+// Programme → Branch filter
+(function(){
+  function filterBranches(progSel, branchSel) {
+    const prog = progSel.value;
+    const groups = branchSel.querySelectorAll('optgroup');
+    groups.forEach(g => {
+      const match = !prog || g.dataset.prog === prog;
+      g.style.display = match ? '' : 'none';
+      g.querySelectorAll('option').forEach(o => o.disabled = !match);
+    });
+    // Reset branch if current selection is now hidden
+    const cur = branchSel.value;
+    const curOpt = branchSel.querySelector(`option[value="${cur}"]`);
+    if (cur && curOpt && curOpt.disabled) branchSel.value = '';
+    branchSel.querySelector('option[value=""]').textContent =
+      prog ? '— Select Branch —' : '— Select Programme first —';
+  }
+  const pSel = document.getElementById('reg-programme');
+  const bSel = document.getElementById('reg-branch');
+  if (pSel && bSel) {
+    filterBranches(pSel, bSel);
+    pSel.addEventListener('change', () => filterBranches(pSel, bSel));
+  }
+})();
+</script>
+{% endblock %}

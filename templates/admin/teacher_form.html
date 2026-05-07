@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Edit' if teacher else 'Add' }} Teacher{% endblock %}
+{% block page_title %}// {{ 'Edit' if teacher else 'Add' }} Teacher{% endblock %}
+{% block content %}
+<div style="max-width:540px;">
+<div class="card">
+  <div class="card-hdr" style="margin-bottom:20px;">
+    <div>
+      <div class="sec-title" style="margin-bottom:2px;">{{ 'Edit' if teacher else 'Create' }} Teacher Account</div>
+      {% if teacher %}<div class="text-dim text-xs">Editing: <span class="mono cyan">{{ teacher.username }}</span></div>{% endif %}
+    </div>
+    <a href="{{ url_for('admin.teachers') }}" class="btn-ghost btn-sm">← Back</a>
+  </div>
+
+  <form method="POST" id="mainForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="grid-2">
+      <div class="f-group">
+        <label class="f-label">Username *</label>
+        <input type="text" name="username" class="f-control" required
+               value="{{ teacher.username if teacher else '' }}"
+               placeholder="e.g. teacher_priya" autocomplete="off"/>
+      </div>
+      <div class="f-group">
+        <label class="f-label">
+          Password {% if teacher %}<span class="text-dim">(blank = keep current)</span>{% else %}*{% endif %}
+        </label>
+        <div style="position:relative;">
+          <input type="password" name="password" id="pwdInput" class="f-control"
+                 {% if not teacher %}required{% endif %}
+                 placeholder="Min. 6 characters" autocomplete="new-password"
+                 style="padding-right:44px;"/>
+          <button type="button" class="pwd-eye" onclick="togglePwd('pwdInput',this)" title="Show/hide password">👁</button>
+        </div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="f-group">
+        <label class="f-label">Full Name</label>
+        <input type="text" name="full_name" class="f-control"
+               value="{{ teacher.full_name if teacher else '' }}"
+               placeholder="e.g. Dr. Priya Sharma"/>
+      </div>
+      <div class="f-group">
+        <label class="f-label">Branch / Department</label>
+        <select name="department" class="f-control">
+          <option value="">— All Branches —</option>
+          {% for key, data in programme_branches.items() %}
+          <optgroup label="{{ data.label }}">
+            {% for code, name in data.branches %}
+            <option value="{{ code }}" {% if teacher and teacher.department==code %}selected{% endif %}>
+              {{ code }} — {{ name }}
+            </option>
+            {% endfor %}
+          </optgroup>
+          {% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="f-group">
+        <label class="f-label">Email Address</label>
+        <input type="email" name="email" class="f-control"
+               value="{{ teacher.email if teacher else '' }}"
+               placeholder="teacher@college.edu"/>
+      </div>
+      <div class="f-group">
+        <label class="f-label">Phone Number</label>
+        <input type="tel" name="phone" class="f-control"
+               value="{{ teacher.phone if teacher else '' }}"
+               placeholder="10-digit number"/>
+      </div>
+    </div>
+    <div class="act-row">
+      <button type="submit" class="btn-primary-spas ripple-btn">
+        <span class="btn-ic">{{ '💾' if teacher else '✅' }}</span>
+        {{ 'Save Changes' if teacher else 'Create Teacher' }}
+      </button>
+      <a href="{{ url_for('admin.teachers') }}" class="btn-ghost ripple-btn">Cancel</a>
+    </div>
+  </form>
+
+  {# ── Delete — OUTSIDE the edit form to avoid nested form bug ── #}
+  {% if teacher %}
+  <div class="danger-zone">
+    <div class="dz-label">⚠️ Danger Zone</div>
+    <div class="dz-row">
+      <div class="text-dim text-xs">Permanently remove this teacher and their account.</div>
+      <form method="POST" action="{{ url_for('admin.delete_teacher', tid=teacher.id) }}" id="deleteTeacherForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="button" class="btn-danger-spas ripple-btn"
+                onclick="spasConfirm('Delete teacher <b>{{ teacher.username }}</b>? This cannot be undone.', function(){ document.getElementById('deleteTeacherForm').submit(); })">
+          🗑️ Delete Teacher
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+</div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function togglePwd(id, btn) {
+  const f = document.getElementById(id);
+  f.type = f.type === 'password' ? 'text' : 'password';
+  btn.textContent = f.type === 'password' ? '👁' : '🙈';
+}
+</script>
+{% endblock %}

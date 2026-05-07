@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% block title %}Reports Centre{% endblock %}
+{% block page_title %}// Reports Centre{% endblock %}
+
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Reports Centre</h1>
+    <p>Generate comprehensive academic reports for your classes.</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('teacher.dashboard') }}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i> Back to Dashboard</a>
+  </div>
+</div>
+
+<div class="grid-2">
+  <div class="card">
+    <div class="card-hdr">
+      <div class="card-title">
+        <div class="card-title-icon" style="background:rgba(0,204,204,0.1);color:var(--accent);"><i class="fa-solid fa-file-pdf"></i></div>
+        Class Performance Report
+      </div>
+    </div>
+    <div style="padding:20px;">
+      <p class="text-dim text-sm mb-20">Generate a professional PDF report containing academic summaries, attendance, and results for a specific branch and semester.</p>
+      
+      <form action="{{ url_for('teacher.class_pdf') }}" method="GET" target="_blank">
+        <div class="f-group">
+          <label class="f-label">Select Branch</label>
+          <select name="branch" class="f-control">
+            <option value="">All Branches</option>
+            {% for b in branches %}
+            <option value="{{ b.branch_code }}">{{ b.branch_code }} — {{ b.branch }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="f-group">
+          <label class="f-label">Select Semester</label>
+          <select name="semester" class="f-control">
+            <option value="">All Semesters</option>
+            {% for s in range(1, 9) %}
+            <option value="{{ s }}">Semester {{ s }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div style="background:rgba(0,0,0,0.2); border-radius:8px; padding:12px; margin-bottom:20px; border:1px dashed var(--border);">
+            <div style="display:flex; align-items:center; gap:10px; color:var(--accent); font-size:.8rem; font-weight:600;">
+                <i class="fa-solid fa-circle-info"></i> Pro Tip
+            </div>
+            <p style="font-size:.75rem; color:var(--text-dim); margin-top:5px; line-height:1.4;">
+                Leaving fields as "All" will generate a combined report grouped by Branch and Semester. This is perfect for a full college overview.
+            </p>
+        </div>
+
+        <button type="submit" class="btn btn-primary btn-block ripple-btn">
+          <i class="fa-solid fa-download"></i> Generate PDF Report
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="card" style="opacity:0.8;">
+    <div class="card-hdr">
+      <div class="card-title">
+        <div class="card-title-icon" style="background:rgba(168,85,247,0.1);color:var(--purple);"><i class="fa-solid fa-chart-pie"></i></div>
+        Advanced AI Analysis Report
+      </div>
+      <span class="badge badge-purple">Coming Soon</span>
+    </div>
+    <div style="padding:20px; text-align:center; min-height:200px; display:flex; flex-direction:column; justify-content:center;">
+      <div style="font-size:3rem; color:var(--border); margin-bottom:15px;"><i class="fa-solid fa-lock"></i></div>
+      <h3 style="color:var(--text);">AI-Powered Insights</h3>
+      <p class="text-dim text-sm">Deep learning analysis of student trends and predictive outcomes will be available in the next update.</p>
+    </div>
+  </div>
+</div>
+
+<div class="card mt-20">
+    <div class="card-hdr">
+        <div class="card-title"><i class="fa-solid fa-clock-rotate-left"></i> Report Generation Tips</div>
+    </div>
+    <div class="table-wrap">
+        <table class="spas-table">
+            <thead>
+                <tr><th>Report Type</th><th>Best Used For</th><th>Included Data</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Branch-wise</strong></td>
+                    <td>Departmental meetings</td>
+                    <td>All semesters of a specific department.</td>
+                </tr>
+                <tr>
+                    <td><strong>Semester-wise</strong></td>
+                    <td>Yearly evaluations</td>
+                    <td>All branches within a specific semester.</td>
+                </tr>
+                <tr>
+                    <td><strong>Specific Class</strong></td>
+                    <td>Classroom management</td>
+                    <td>Targeted data for one specific group of students.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{% endblock %}

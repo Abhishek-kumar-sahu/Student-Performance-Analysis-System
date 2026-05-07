@@ -1,0 +1,697 @@
+{% extends 'base.html' %}
+{% block title %}Upload Student Data{% endblock %}
+{% block page_title %}// <i class="fa-solid fa-cloud-arrow-up"></i> Upload Data{% endblock %}
+
+{% block content %}
+<style>
+/* ── Upload Page Specific Styles ──────────────────────────── */
+.up-hero {
+  display: flex; align-items: center; gap: 20px;
+  background: linear-gradient(135deg, rgba(0,255,255,.04) 0%, rgba(0,180,180,.02) 100%);
+  border: 1px solid rgba(0,255,255,.15); border-radius: 14px;
+  padding: 22px 26px; margin-bottom: 24px; position: relative; overflow: hidden;
+}
+.up-hero::before {
+  content: ''; position: absolute; top: -40px; right: -40px;
+  width: 180px; height: 180px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(0,255,255,.07) 0%, transparent 70%);
+  pointer-events: none;
+}
+.up-hero-icon {
+  width: 56px; height: 56px; border-radius: 14px; flex-shrink: 0;
+  background: rgba(0,255,255,.1); border: 1px solid rgba(0,255,255,.25);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.6rem; box-shadow: 0 0 20px rgba(0,255,255,.12);
+}
+.up-hero-text h2 { font-size: 1rem; font-weight: 800; color: var(--accent); margin-bottom: 5px; }
+.up-hero-text p  { font-size: .78rem; color: var(--text-dim); line-height: 1.65; }
+.up-hero-text strong { color: var(--accent); }
+
+/* ── Step Flow ────────────────────────────────────────────── */
+.step-flow {
+  display: flex; align-items: center; gap: 0; margin-bottom: 28px;
+}
+.step-item {
+  display: flex; align-items: center; gap: 10px; flex: 1;
+  padding: 13px 16px; border-radius: 10px; transition: all .3s;
+  border: 1px solid var(--border); background: var(--card); position: relative;
+}
+.step-item.active { border-color: var(--accent); background: rgba(0,255,255,.06); box-shadow: 0 0 16px rgba(0,255,255,.1); }
+.step-item.done   { border-color: rgba(0,255,153,.4); background: rgba(0,255,153,.04); }
+.step-connector { width: 30px; height: 2px; flex-shrink: 0; background: var(--border); transition: background .3s; }
+.step-connector.done { background: rgba(0,255,153,.5); }
+.step-num {
+  width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center;
+  justify-content: center; font-size: .7rem; font-weight: 800; flex-shrink: 0;
+  background: rgba(255,255,255,.06); color: var(--text-dim); border: 1.5px solid var(--border);
+  transition: all .3s;
+}
+.step-item.active .step-num { background: var(--accent); color: #000; border-color: var(--accent); box-shadow: 0 0 10px var(--glow); }
+.step-item.done .step-num   { background: var(--green); color: #000; border-color: var(--green); }
+.step-label { font-size: .75rem; font-weight: 600; color: var(--text-dim); line-height: 1.2; }
+.step-item.active .step-label { color: var(--accent); }
+.step-item.done .step-label   { color: var(--green); }
+.step-sub { font-size: .62rem; color: var(--text-xs); }
+
+/* ── Type Selector ────────────────────────────────────────── */
+.type-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin-bottom: 8px;
+}
+.type-card {
+  border: 2px solid var(--border); border-radius: 12px; padding: 20px 16px;
+  cursor: pointer; transition: all .25s; text-align: center;
+  background: rgba(0,0,0,.25); position: relative; overflow: hidden;
+}
+.type-card::after {
+  content: ''; position: absolute; inset: 0; opacity: 0;
+  background: radial-gradient(circle at 50% 0%, var(--tc, rgba(0,255,255,.12)) 0%, transparent 70%);
+  transition: opacity .3s;
+}
+.type-card:hover { border-color: rgba(0,255,255,.4); transform: translateY(-2px); box-shadow: 0 8px 28px rgba(0,0,0,.4); }
+.type-card:hover::after { opacity: 1; }
+.type-card.selected { border-color: var(--tc-border, var(--accent)); background: var(--tc-bg, rgba(0,255,255,.07)); box-shadow: 0 0 20px var(--tc-glow, rgba(0,255,255,.15)); }
+.type-card.selected::after { opacity: 1; }
+.type-card.selected .type-check { opacity: 1; transform: scale(1); }
+
+.type-card[data-type="university_results"] { --tc: rgba(0,210,180,.15);  --tc-border: #00d2b4; --tc-bg: rgba(0,210,180,.07);  --tc-glow: rgba(0,210,180,.2); }
+.type-card[data-type="attendance"]         { --tc: rgba(88,166,255,.15); --tc-border: #58a6ff; --tc-bg: rgba(88,166,255,.07); --tc-glow: rgba(88,166,255,.2); }
+
+.type-icon { font-size: 1.8rem; margin-bottom: 10px; display: block; }
+.type-name { font-size: .85rem; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+.type-desc { font-size: .68rem; color: var(--text-dim); line-height: 1.4; }
+.type-check {
+  position: absolute; top: 10px; right: 10px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--tc-border, var(--accent)); color: #000;
+  display: flex; align-items: center; justify-content: center;
+  font-size: .65rem; font-weight: 900;
+  opacity: 0; transform: scale(.5); transition: all .25s;
+}
+
+/* ── Drop Zone ────────────────────────────────────────────── */
+.drop-zone {
+  border: 2px dashed rgba(0,255,255,.2); border-radius: 14px;
+  padding: 48px 20px; text-align: center; cursor: pointer;
+  transition: all .3s; position: relative; overflow: hidden;
+  background: rgba(0,0,0,.2);
+}
+.drop-zone:hover { border-color: rgba(0,255,255,.45); background: rgba(0,255,255,.03); }
+.drop-zone.drag-active {
+  border-color: var(--accent); background: rgba(0,255,255,.07);
+  box-shadow: 0 0 30px rgba(0,255,255,.15), inset 0 0 30px rgba(0,255,255,.04);
+  transform: scale(1.005);
+}
+.drop-zone.has-file { border-style: solid; border-color: rgba(0,255,153,.4); background: rgba(0,255,153,.04); }
+.drop-zone.blocked  { border-color: rgba(255,77,77,.4); background: rgba(255,77,77,.04); cursor: default; }
+
+.dz-orbit {
+  width: 72px; height: 72px; border-radius: 50%; margin: 0 auto 16px;
+  background: rgba(0,255,255,.07); border: 2px solid rgba(0,255,255,.2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.8rem; transition: all .3s; position: relative;
+}
+.dz-orbit::before {
+  content: ''; position: absolute; inset: -8px; border-radius: 50%;
+  border: 1px dashed rgba(0,255,255,.15);
+  animation: spin 12s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.drop-zone.drag-active .dz-orbit { transform: scale(1.15); box-shadow: 0 0 30px rgba(0,255,255,.3); border-color: var(--accent); }
+.drop-zone.has-file .dz-orbit  { background: rgba(0,255,153,.1); border-color: rgba(0,255,153,.4); }
+
+.dz-title  { font-size: .92rem; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.dz-sub    { font-size: .74rem; color: var(--text-dim); }
+.dz-formats{ display: flex; gap: 8px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
+.dz-fmt    { font-size: .65rem; padding: 3px 10px; border-radius: 20px; font-weight: 700; letter-spacing: .5px; }
+.dz-fmt.csv  { background: rgba(0,255,153,.1);  color: var(--green);  border: 1px solid rgba(0,255,153,.25); }
+.dz-fmt.xlsx { background: rgba(88,166,255,.1); color: var(--blue);   border: 1px solid rgba(88,166,255,.25); }
+.dz-fmt.xls  { background: rgba(168,85,247,.1); color: var(--purple); border: 1px solid rgba(168,85,247,.25); }
+
+/* File preview card */
+.file-preview {
+  display: none; margin-top: 16px;
+  background: rgba(0,255,153,.05); border: 1px solid rgba(0,255,153,.2);
+  border-radius: 10px; padding: 14px 18px;
+  align-items: center; gap: 14px;
+}
+.file-preview.show { display: flex; }
+.fp-icon { font-size: 1.6rem; flex-shrink: 0; }
+.fp-name { font-size: .85rem; font-weight: 700; color: var(--green); }
+.fp-meta { font-size: .7rem; color: var(--text-dim); margin-top: 2px; }
+.fp-remove {
+  margin-left: auto; background: rgba(255,77,77,.1); border: 1px solid rgba(255,77,77,.25);
+  color: var(--red); border-radius: 6px; padding: 5px 10px; font-size: .72rem;
+  cursor: pointer; transition: all .2s; font-weight: 600;
+}
+.fp-remove:hover { background: rgba(255,77,77,.2); }
+
+/* ── Template Download ────────────────────────────────────── */
+.tmpl-row {
+  display: none; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 12px 16px; border-radius: 9px;
+  background: rgba(0,255,255,.03); border: 1px solid rgba(0,255,255,.1);
+  margin-top: 14px;
+}
+.tmpl-row.show { display: flex; }
+.tmpl-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: .76rem; font-weight: 700; padding: 7px 14px;
+  border-radius: 7px; border: 1px solid rgba(0,255,255,.3);
+  color: var(--accent); background: rgba(0,255,255,.07);
+  text-decoration: none; transition: all .2s; cursor: pointer;
+}
+.tmpl-btn:hover { background: rgba(0,255,255,.14); border-color: var(--accent); box-shadow: 0 0 12px rgba(0,255,255,.15); color: var(--accent); }
+.tmpl-cols { font-size: .68rem; color: var(--text-dim); font-family: 'JetBrains Mono', monospace; }
+
+/* ── Upload Btn ───────────────────────────────────────────── */
+.up-actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-top: 22px; }
+.up-btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 26px; border-radius: 9px; font-size: .85rem; font-weight: 700;
+  border: none; cursor: pointer; transition: all .25s;
+  background: var(--accent); color: #000; box-shadow: 0 0 18px var(--glow);
+  position: relative; overflow: hidden;
+}
+.up-btn:disabled { opacity: .4; cursor: not-allowed; box-shadow: none; }
+.up-btn:not(:disabled):hover { background: var(--accent2); box-shadow: 0 0 28px rgba(0,255,255,.5); transform: translateY(-1px); }
+.up-btn::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.15), transparent);
+  transform: translateX(-100%); transition: transform .5s;
+}
+.up-btn:not(:disabled):hover::after { transform: translateX(100%); }
+
+.up-hint { font-size: .72rem; color: var(--text-xs); font-style: italic; }
+
+/* ── Column Reference ─────────────────────────────────────── */
+.col-ref-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; }
+.col-ref-card { border-radius: 10px; padding: 16px; border: 1px solid var(--border); background: rgba(0,0,0,.2); }
+.col-ref-title { font-size: .78rem; font-weight: 800; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.col-row { display: flex; justify-content: space-between; align-items: center; padding: 5px 0; border-bottom: 1px solid rgba(255,255,255,.03); }
+.col-row:last-child { border-bottom: none; }
+.col-name { font-size: .72rem; font-family: 'JetBrains Mono', monospace; color: var(--text); }
+.col-type { font-size: .65rem; color: var(--text-dim); }
+.col-req  { font-size: .62rem; color: var(--accent); font-weight: 700; }
+
+/* ── History Table ────────────────────────────────────────── */
+.status-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: .68rem; font-weight: 700; padding: 3px 9px; border-radius: 20px;
+}
+.st-success { background: rgba(0,255,153,.1);  color: var(--green);  border: 1px solid rgba(0,255,153,.25); }
+.st-partial { background: rgba(255,204,0,.1);  color: var(--yellow); border: 1px solid rgba(255,204,0,.25); }
+.st-failed  { background: rgba(255,77,77,.1);  color: var(--red);    border: 1px solid rgba(255,77,77,.25); }
+.st-running { background: rgba(88,166,255,.1); color: var(--blue);   border: 1px solid rgba(88,166,255,.25); }
+
+/* ── Progress overlay ─────────────────────────────────────── */
+.up-progress-overlay {
+  display: none; position: fixed; inset: 0; z-index: 9999;
+  background: rgba(0,0,0,.75); backdrop-filter: blur(8px);
+  align-items: center; justify-content: center; flex-direction: column; gap: 20px;
+}
+.up-progress-overlay.show { display: flex; }
+.up-progress-box {
+  background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+  padding: 36px 44px; text-align: center; min-width: 320px;
+  box-shadow: 0 0 60px rgba(0,255,255,.15);
+}
+.up-spinner {
+  width: 56px; height: 56px; border-radius: 50%; margin: 0 auto 18px;
+  border: 3px solid rgba(0,255,255,.15); border-top-color: var(--accent);
+  animation: spin .8s linear infinite;
+}
+.up-progress-title  { font-size: 1rem; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
+.up-progress-detail { font-size: .78rem; color: var(--text-dim); }
+.up-progress-bar-wrap { margin-top: 16px; background: rgba(255,255,255,.06); border-radius: 4px; height: 4px; overflow: hidden; }
+/* BUG-15 FIX: The animation previously stopped at 92%, so users always saw an
+   incomplete bar right before the page redirected, making uploads look stuck.
+   The final keyframe now reaches 100%. */
+.up-progress-bar-fill { height: 100%; background: var(--accent); border-radius: 4px; width: 0%; transition: width .3s; animation: progress-fill 3s ease forwards; }
+@keyframes progress-fill { 0%{width:0%} 60%{width:75%} 85%{width:92%} 100%{width:100%} }
+
+/* ── Responsive ───────────────────────────────────────────── */
+@media(max-width:900px) {
+  .type-grid      { grid-template-columns: 1fr 1fr; }
+  .col-ref-grid   { grid-template-columns: 1fr; }
+  .step-flow      { display: none; }
+}
+@media(max-width:560px) {
+  .type-grid      { grid-template-columns: 1fr; }
+  .up-hero        { flex-direction: column; text-align: center; padding: 18px; }
+  .up-actions     { flex-direction: column; align-items: stretch; }
+  .up-btn         { justify-content: center; }
+  .drop-zone      { padding: 32px 16px; }
+}
+</style>
+
+{# ── Hero banner ──────────────────────────────────────────────────── #}
+<div class="up-hero">
+  <div class="up-hero-icon"><i class="fa-solid fa-cloud-arrow-up"></i></div>
+  <div class="up-hero-text">
+    <h2>Bulk Data Upload — Teacher / Admin Only</h2>
+    <p>
+      Upload university results (with [T]/[P] subject grades) or subject-wise attendance in <strong>CSV, XLSX, or XLS</strong> format.
+      <strong>Students cannot upload data</strong> — they can only view their own analysis.
+      All data is scoped to your college only.
+    </p>
+  </div>
+</div>
+
+{# ── Step flow indicator ───────────────────────────────────────────── #}
+<div class="step-flow" id="stepFlow">
+  <div class="step-item active" id="step1">
+    <div class="step-num">1</div>
+    <div><div class="step-label">Choose Type</div><div class="step-sub">Select data category</div></div>
+  </div>
+  <div class="step-connector" id="conn1"></div>
+  <div class="step-item" id="step2">
+    <div class="step-num">2</div>
+    <div><div class="step-label">Upload File</div><div class="step-sub">Drop or browse</div></div>
+  </div>
+  <div class="step-connector" id="conn2"></div>
+  <div class="step-item" id="step3">
+    <div class="step-num">3</div>
+    <div><div class="step-label">Process</div><div class="step-sub">Review & submit</div></div>
+  </div>
+</div>
+
+{# ── Upload form card ──────────────────────────────────────────────── #}
+<div class="card mb-20">
+
+  {# Step 1: Type selector #}
+  <div style="margin-bottom:22px;">
+    <div style="font-size:.72rem;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px;">
+      Step 1 — Select Upload Type
+    </div>
+    <div class="type-grid" style="grid-template-columns:1fr 1fr;">
+      <div class="type-card" data-type="university_results" onclick="selectType('university_results',this)">
+        <div class="type-check"><i class="fa-solid fa-check"></i></div>
+        <span class="type-icon"><i class="fa-solid fa-graduation-cap"></i></span>
+        <div class="type-name">University Results</div>
+        <div class="type-desc">Dynamic subject columns with [T]/[P] grades, SGPA, CGPA — matches your university CSV export format</div>
+      </div>
+      <div class="type-card" data-type="attendance" onclick="selectType('attendance',this)">
+        <div class="type-check"><i class="fa-solid fa-check"></i></div>
+        <span class="type-icon"><i class="fa-solid fa-calendar-days"></i></span>
+        <div class="type-name">Attendance</div>
+        <div class="type-desc">Subject-wise attendance % per student — same dynamic [T]/[P] column format</div>
+      </div>
+    </div>
+
+    {# Template download row (shown after type selection) #}
+    <div class="tmpl-row" id="tmplRow">
+      <a id="tmplLink" href="#" class="tmpl-btn"><i class="fa-solid fa-download"></i> Download Template</a>
+      <span class="tmpl-cols" id="tmplCols"></span>
+    </div>
+  </div>
+
+  {# Divider #}
+  <div style="height:1px;background:var(--border);margin-bottom:22px;"></div>
+
+  {# Step 2: File upload #}
+  <div style="margin-bottom:6px;">
+    <div style="font-size:.72rem;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:14px;">
+      Step 2 — Upload Your File
+    </div>
+
+    <form method="POST" action="{{ url_for('upload.process_upload') }}"
+          enctype="multipart/form-data" id="uploadForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="upload_type" id="uploadTypeInput" value="">
+      <div style="margin-bottom:16px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;">
+        <div>
+          <label style="font-size:.72rem;font-weight:700;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em;display:block;margin-bottom:6px;">Semester Number <span style="color:var(--red);">*</span></label>
+          <select name="semester_no" id="semesterNoInput" class="f-control" style="width:160px;" required>
+            <option value="">— Select —</option>
+            {% for s in range(1,9) %}<option value="{{ s }}">Semester {{ s }}</option>{% endfor %}
+          </select>
+        </div>
+        <div style="font-size:.72rem;color:var(--text-dim);padding-top:20px;">
+          All rows in this file will be assigned to the selected semester.
+        </div>
+      </div>
+      <input type="file" name="csv_file" id="csvFile" accept=".csv,.xlsx,.xls" style="display:none" onchange="fileChosen(this)">
+
+      {# Drop zone #}
+      <div class="drop-zone" id="dropZone" onclick="triggerFile()">
+        <div class="dz-orbit" id="dzOrbit">
+          <span id="dzIcon"><i class="fa-solid fa-cloud-arrow-up"></i></span>
+        </div>
+        <div class="dz-title" id="dzTitle">Drag &amp; drop your file here</div>
+        <div class="dz-sub"  id="dzSub">or click anywhere to browse</div>
+        <div class="dz-formats">
+          <span class="dz-fmt csv">CSV</span>
+          <span class="dz-fmt xlsx">XLSX</span>
+          <span class="dz-fmt xls">XLS</span>
+        </div>
+      </div>
+
+      {# File preview #}
+      <div class="file-preview" id="filePreview">
+        <span class="fp-icon" id="fpIcon"><i class="fa-solid fa-file-csv"></i></span>
+        <div>
+          <div class="fp-name" id="fpName"></div>
+          <div class="fp-meta" id="fpMeta"></div>
+        </div>
+        <button type="button" class="fp-remove" onclick="clearFile()">✕ Remove</button>
+      </div>
+
+      {# Actions #}
+      <div class="up-actions">
+        <button type="submit" id="uploadBtn" class="up-btn ripple-btn" disabled onclick="return submitUpload()">
+          <span id="uploadBtnIcon"><i class="fa-solid fa-upload"></i></span>
+          <span id="uploadBtnText">Upload &amp; Process</span>
+        </button>
+        <button type="button" class="btn-ghost btn-sm ripple-btn" onclick="resetAll()" style="padding:11px 18px;"><i class="fa-solid fa-rotate-left"></i> Reset</button>
+        <span class="up-hint" id="upHint">← Choose a type and file to continue</span>
+      </div>
+
+    </form>
+  </div>
+</div>
+
+{# ── Column Reference ──────────────────────────────────────────────── #}
+<div class="card mb-20">
+  <div class="card-hdr" style="margin-bottom:18px;">
+    <div class="card-title">
+      <div class="card-title-icon" style="background:rgba(0,255,255,.08);color:#00ffff;"><i class="fa-solid fa-clipboard-list"></i></div>
+      CSV Column Reference
+    </div>
+  </div>
+  <div class="col-ref-grid" style="grid-template-columns:1fr 1fr;">
+
+    <div class="col-ref-card">
+      <div class="col-ref-title" style="color:#00d2b4;"><i class="fa-solid fa-graduation-cap"></i> University Results Format</div>
+      <div class="col-row"><span class="col-name">Roll No</span><span class="col-req">Required</span></div>
+      <div class="col-row"><span class="col-name">Name</span><span class="col-type">Student name</span></div>
+      <div class="col-row"><span class="col-name">Result Status</span><span class="col-type">PASS / Fail in…</span></div>
+      <div class="col-row"><span class="col-name">SGPA</span><span class="col-type">0–10</span></div>
+      <div class="col-row"><span class="col-name">CGPA</span><span class="col-type">0–10</span></div>
+      <div class="col-row"><span class="col-name">CS701- [T]</span><span class="col-type">Theory grade</span></div>
+      <div class="col-row"><span class="col-name">CS607- [P]</span><span class="col-type">Practical grade</span></div>
+      <div style="margin-top:12px;padding:10px;border-radius:7px;background:rgba(0,210,180,.06);border:1px solid rgba(0,210,180,.2);">
+        <div style="font-size:.68rem;color:#00d2b4;line-height:1.6;">
+          <strong>Grades supported:</strong> O, A+, A, B+, B, C+, C, D, F, F (ABS)<br>
+          <strong>Subject columns:</strong> Any number of <code>[T]</code> or <code>[P]</code> columns<br>
+          <strong>Skip rows:</strong> "NOT FOUND" or missing SGPA rows are automatically skipped
+        </div>
+      </div>
+    </div>
+
+    <div class="col-ref-card">
+      <div class="col-ref-title" style="color:#58a6ff;"><i class="fa-solid fa-calendar-check"></i> Attendance Format</div>
+      <div class="col-row"><span class="col-name">Roll No</span><span class="col-req">Required</span></div>
+      <div class="col-row"><span class="col-name">Name</span><span class="col-type">Student name</span></div>
+      <div class="col-row"><span class="col-name">CS701- [T]</span><span class="col-type">Attendance % (0–100)</span></div>
+      <div class="col-row"><span class="col-name">CS607- [P]</span><span class="col-type">Attendance % (0–100)</span></div>
+      <div style="margin-top:12px;padding:10px;border-radius:7px;background:rgba(88,166,255,.06);border:1px solid rgba(88,166,255,.2);">
+        <div style="font-size:.68rem;color:#58a6ff;line-height:1.6;">
+          <strong>Same column format</strong> as University Results — use [T]/[P] subject codes<br>
+          <strong>Auto-flags</strong> students below 75% attendance in their dashboard<br>
+          <strong>Merges</strong> with existing results data — does not overwrite grades
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+{# ── Upload History ────────────────────────────────────────────────── #}
+{% if logs %}
+<div class="card">
+  <div class="card-hdr" style="margin-bottom:16px;">
+    <div class="card-title">
+      <div class="card-title-icon" style="background:rgba(168,85,247,.1);color:#a855f7;"><i class="fa-solid fa-history"></i></div>
+      Upload History
+    </div>
+    <span class="badge badge-dim">{{ logs|length }} record{{ 's' if logs|length != 1 }}</span>
+  </div>
+  <div class="table-wrap">
+    <table class="spas-table">
+      <thead>
+        <tr>
+          <th>Date</th><th>Type</th><th>File</th><th>Uploaded By</th>
+          <th>✅ Success</th><th>❌ Failed</th><th>Status</th><th>Errors</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for log in logs %}
+      <tr>
+        <td class="mono text-xs text-dim" style="white-space:nowrap;">{{ log.created_at[:16] }}</td>
+        <td>
+          <span class="badge {% if log.upload_type=='university_results' %}badge-blue{% elif log.upload_type=='attendance' %}badge-green{% else %}badge-dim{% endif %}">
+            {{ log.upload_type }}
+          </span>
+        </td>
+        <td class="text-sm text-dim" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+          {{ log.file_name or '—' }}
+        </td>
+        <td class="text-sm">{{ log.by_name or '—' }}</td>
+        <td class="text-green text-sm mono">{{ log.rows_success or 0 }}</td>
+        <td class="mono text-sm {% if (log.rows_failed or 0)>0 %}text-red{% else %}text-dim{% endif %}">
+          {{ log.rows_failed or 0 }}
+        </td>
+        <td>
+          <span class="status-badge {% if log.status=='success' %}st-success{% elif log.status=='partial' %}st-partial{% elif log.status=='failed' %}st-failed{% else %}st-running{% endif %}">
+            {% if log.status=='success'  %}<i class="fa-solid fa-circle-check"></i> Success
+            {% elif log.status=='partial'%}<i class="fa-solid fa-circle-exclamation"></i> Partial
+            {% elif log.status=='failed' %}<i class="fa-solid fa-circle-xmark"></i> Failed
+            {% else                      %}<i class="fa-solid fa-spinner fa-spin"></i> Processing{% endif %}
+          </span>
+        </td>
+        <td style="max-width:200px;">
+          {% if log.error_detail %}
+          <details>
+            <summary style="cursor:pointer;font-size:.72rem;color:var(--text-dim);">View errors</summary>
+            {% set full = log.error_detail %}
+            {% set preview = full[:300] %}
+            <pre id="err-{{ loop.index }}" style="font-size:.64rem;color:#ef4444;white-space:pre-wrap;margin-top:6px;padding:8px;background:rgba(255,77,77,.05);border-radius:6px;border:1px solid rgba(255,77,77,.15);">{{ preview if full|length <= 300 else preview }}</pre>
+            {% if full|length > 300 %}
+            <div id="err-full-{{ loop.index }}" style="display:none;">
+              <pre style="font-size:.64rem;color:#ef4444;white-space:pre-wrap;margin-top:4px;padding:8px;background:rgba(255,77,77,.05);border-radius:6px;border:1px solid rgba(255,77,77,.15);">{{ full }}</pre>
+            </div>
+            <button onclick="(function(i){var f=document.getElementById('err-full-'+i),p=document.getElementById('err-'+i),b=this;if(f.style.display==='none'){f.style.display='';p.style.display='none';b.textContent='▲ Show less';}else{f.style.display='none';p.style.display='';b.textContent='▼ Show all '+{{ full|length }}+' chars';}})({{ loop.index }},this)" style="font-size:.64rem;color:#58a6ff;background:none;border:none;cursor:pointer;padding:2px 0;margin-top:2px;">▼ Show all {{ full|length }} chars</button>
+            {% endif %}
+          </details>
+          {% else %}
+          <span style="color:var(--text-xs);font-size:.72rem;">—</span>
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{# ── Processing overlay ────────────────────────────────────────────── #}
+<div class="up-progress-overlay" id="progressOverlay">
+  <div class="up-progress-box">
+    <div class="up-spinner"></div>
+    <div class="up-progress-title">Processing Upload…</div>
+    <div class="up-progress-detail" id="progressDetail">Validating rows and importing data</div>
+    <div class="up-progress-bar-wrap">
+      <div class="up-progress-bar-fill"></div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+const TEMPLATE_COLS = {
+  university_results: 'Roll No, Name, Result Status, SGPA, CGPA, <SubjectCode>- [T], <SubjectCode>- [P], … (dynamic subject columns)',
+  attendance:         'Roll No, Name, <SubjectCode>- [T], <SubjectCode>- [P], … (attendance % values)'
+};
+
+let selectedType = '';
+let selectedFile = null;
+
+/* ── Step updater ───────────────────────────────────────────── */
+function updateSteps() {
+  const s1 = document.getElementById('step1');
+  const s2 = document.getElementById('step2');
+  const s3 = document.getElementById('step3');
+  const c1 = document.getElementById('conn1');
+  const c2 = document.getElementById('conn2');
+
+  if (selectedType) {
+    s1.classList.add('done'); s1.classList.remove('active');
+    s1.querySelector('.step-num').innerHTML = '<i class="fa-solid fa-check"></i>';
+    c1.classList.add('done');
+    s2.classList.add('active');
+  } else {
+    s1.classList.remove('done'); s1.classList.add('active');
+    s1.querySelector('.step-num').textContent = '1';
+    c1.classList.remove('done');
+    s2.classList.remove('active','done');
+    s2.querySelector('.step-num').textContent = '2';
+  }
+
+  if (selectedType && selectedFile) {
+    s2.classList.add('done'); s2.classList.remove('active');
+    s2.querySelector('.step-num').innerHTML = '<i class="fa-solid fa-check"></i>';
+    c2.classList.add('done');
+    s3.classList.add('active');
+  } else {
+    s2.classList.remove('done');
+    if (selectedType) s2.classList.add('active'); else s2.classList.remove('active');
+    s2.querySelector('.step-num').textContent = '2';
+    c2.classList.remove('done');
+    s3.classList.remove('active');
+  }
+}
+
+/* ── Type selection ─────────────────────────────────────────── */
+function selectType(type, el) {
+  selectedType = type;
+  document.getElementById('uploadTypeInput').value = type;
+  document.querySelectorAll('.type-card').forEach(c => c.classList.remove('selected'));
+  el.classList.add('selected');
+
+  const tmpl = document.getElementById('tmplRow');
+  tmpl.classList.add('show');
+  document.getElementById('tmplLink').href    = `/upload/template/${type}`;
+  document.getElementById('tmplLink').innerHTML   = `<i class="fa-solid fa-download"></i> Download ${type} template`;
+  document.getElementById('tmplCols').textContent = 'Columns: ' + TEMPLATE_COLS[type];
+
+  updateSteps(); updateBtn();
+}
+
+/* ── File trigger & selection ───────────────────────────────── */
+function triggerFile() {
+  if (!selectedType) {
+    // Pulse the type grid to hint
+    document.querySelectorAll('.type-card').forEach(c => {
+      c.style.transition = 'box-shadow .15s';
+      c.style.boxShadow  = '0 0 0 2px rgba(255,204,0,.5)';
+      setTimeout(() => c.style.boxShadow = '', 600);
+    });
+    showHint('<i class="fa-solid fa-arrow-up"></i> Please select a data type first', 'warning');
+    return;
+  }
+  document.getElementById('csvFile').click();
+}
+
+function fileChosen(input) {
+  const file = input.files[0];
+  if (!file) return;
+  const ext  = file.name.split('.').pop().toLowerCase();
+  if (!['csv','xlsx','xls'].includes(ext)) {
+    showHint('<i class="fa-solid fa-circle-xmark"></i> Unsupported file type. Use CSV, XLSX, or XLS.', 'error');
+    input.value = '';
+    return;
+  }
+  selectedFile = file;
+  const dz = document.getElementById('dropZone');
+  dz.classList.add('has-file');
+
+  // Orbit icon
+  const icons = { csv: '<i class="fa-solid fa-file-csv"></i>', xlsx: '<i class="fa-solid fa-file-excel"></i>', xls: '<i class="fa-solid fa-file-excel"></i>' };
+  document.getElementById('dzIcon').innerHTML  = icons[ext] || '<i class="fa-solid fa-file"></i>';
+  document.getElementById('dzTitle').textContent = 'File ready to upload';
+  document.getElementById('dzSub').textContent   = 'Click to swap file';
+
+  // File preview
+  const fp = document.getElementById('filePreview');
+  fp.classList.add('show');
+  document.getElementById('fpIcon').innerHTML  = icons[ext] || '<i class="fa-solid fa-file"></i>';
+  document.getElementById('fpName').textContent  = file.name;
+  document.getElementById('fpMeta').textContent  = `${(file.size/1024).toFixed(1)} KB · .${ext.toUpperCase()} · ${new Date().toLocaleTimeString()}`;
+
+  updateSteps(); updateBtn();
+}
+
+function clearFile() {
+  selectedFile = null;
+  document.getElementById('csvFile').value = '';
+  const dz = document.getElementById('dropZone');
+  dz.classList.remove('has-file');
+  document.getElementById('dzIcon').innerHTML  = '<i class="fa-solid fa-cloud-arrow-up"></i>';
+  document.getElementById('dzTitle').textContent = 'Drag & drop your file here';
+  document.getElementById('dzSub').textContent   = 'or click anywhere to browse';
+  document.getElementById('filePreview').classList.remove('show');
+  updateSteps(); updateBtn();
+}
+
+function resetAll() {
+  selectedType = ''; selectedFile = null;
+  document.getElementById('uploadTypeInput').value = '';
+  document.getElementById('csvFile').value = '';
+  document.querySelectorAll('.type-card').forEach(c => c.classList.remove('selected'));
+  document.getElementById('tmplRow').classList.remove('show');
+  clearFile();
+  updateSteps(); updateBtn();
+  showHint('← Choose a type and file to continue', 'neutral');
+}
+
+/* ── Hint text ──────────────────────────────────────────────── */
+function showHint(msg, type='neutral') {
+  const el = document.getElementById('upHint');
+  el.textContent = msg;
+  el.style.color = type==='error'   ? 'var(--red)'    :
+                   type==='warning' ? 'var(--yellow)'  :
+                   type==='ok'      ? 'var(--green)'   : 'var(--text-xs)';
+}
+
+function updateBtn() {
+  const btn  = document.getElementById('uploadBtn');
+  const ready = !!(selectedType && selectedFile);
+  btn.disabled = !ready;
+  if (!selectedType) showHint('← Step 1: choose a data type first', 'neutral');
+  else if (!selectedFile) showHint('← Step 2: upload your CSV / XLSX file', 'neutral');
+  else showHint('<i class="fa-solid fa-circle-check"></i> Ready — click Upload & Process', 'ok');
+}
+
+/* ── Submit handler ─────────────────────────────────────────── */
+function submitUpload() {
+  if (!selectedType || !selectedFile) return false;
+  document.getElementById('progressOverlay').classList.add('show');
+  const detail = document.getElementById('progressDetail');
+  const msgs = ['Validating rows…','Checking enrollment numbers…','Importing records…','Updating student profiles…'];
+  let i = 0;
+  setInterval(() => { detail.textContent = msgs[Math.min(i++, msgs.length-1)]; }, 1200);
+  return true;
+}
+
+/* ── Drag & drop ────────────────────────────────────────────── */
+const dz = document.getElementById('dropZone');
+dz.addEventListener('dragenter', e => { e.preventDefault(); e.stopPropagation(); });
+dz.addEventListener('dragover', e => {
+  e.preventDefault(); e.stopPropagation();
+  dz.classList.add('drag-active');
+});
+dz.addEventListener('dragleave', e => {
+  if (!dz.contains(e.relatedTarget)) dz.classList.remove('drag-active');
+});
+dz.addEventListener('drop', e => {
+  e.preventDefault(); e.stopPropagation();
+  dz.classList.remove('drag-active');
+  if (!selectedType) {
+    showHint('<i class="fa-solid fa-arrow-up"></i> Select a type above before dropping a file', 'warning');
+    return;
+  }
+  const file = e.dataTransfer.files[0];
+  if (!file) return;
+  const ext = file.name.split('.').pop().toLowerCase();
+  if (!['csv','xlsx','xls'].includes(ext)) {
+    showHint('<i class="fa-solid fa-circle-xmark"></i> Unsupported file. Use CSV, XLSX, or XLS.', 'error');
+    return;
+  }
+  const input = document.getElementById('csvFile');
+  const dt = new DataTransfer(); dt.items.add(file); input.files = dt.files;
+  fileChosen(input);
+});
+
+/* ── Page drag prevention (don't navigate away) ─────────────── */
+document.addEventListener('dragover', e => e.preventDefault());
+document.addEventListener('drop', e => {
+  if (e.target.closest('#dropZone')) return;
+  e.preventDefault();
+});
+
+/* ── Init ───────────────────────────────────────────────────── */
+updateBtn();
+</script>
+{% endblock %}

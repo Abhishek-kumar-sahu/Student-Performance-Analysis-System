@@ -1,0 +1,188 @@
+{% extends 'base.html' %}
+{% block title %}Attendance vs Performance{% endblock %}
+{% block page_title %}// 📈 Attendance–Performance Correlation{% endblock %}
+{% block content %}
+<style>
+.stu-cell { display:flex;align-items:center;gap:10px; }
+.stu-av   { width:28px;height:28px;border-radius:50%;flex-shrink:0;border:1.5px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:.7rem;font-weight:700;color:var(--accent);background:rgba(0,255,255,.07);overflow:hidden; }
+.stu-av img { width:100%;height:100%;object-fit:cover;border-radius:50%; }
+.stu-name { font-size:.8rem;font-weight:600;color:var(--text); }
+</style>
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Attendance Impact Analysis</h1>
+    <p>Correlate attendance rates with CGPA and academic outcomes.</p>
+  </div>
+</div>
+
+{# Filters #}
+<div class="card mb-20" style="padding:12px 20px; border-color:rgba(0,204,204,.2); background:rgba(0,204,204,.02);">
+  <form id="filterForm" method="GET" action="{{ url_for('analytics.attendance_correlation') }}" style="display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span class="text-dim text-sm" style="font-weight:600; color:var(--accent);"><i class="fa-solid fa-filter"></i> FILTERS:</span>
+    </div>
+    
+    <div style="display:flex; align-items:center; gap:10px;">
+      <label class="text-xs text-dim" style="text-transform:uppercase; letter-spacing:1px;">Branch</label>
+      <select name="branch" class="f-control f-control-sm" style="width:180px;" onchange="this.form.submit()">
+        <option value="">All Branches</option>
+        {% for b in branches %}<option value="{{ b.branch_code }}" {% if branch_filter==b.branch_code %}selected{% endif %}>{{ b.branch }}</option>{% endfor %}
+      </select>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:10px;">
+      <label class="text-xs text-dim" style="text-transform:uppercase; letter-spacing:1px;">Semester</label>
+      <select name="semester" class="f-control f-control-sm" style="width:140px;" onchange="this.form.submit()">
+        <option value="">All Semesters</option>
+        {% for s in sems %}<option value="{{ s }}" {% if sem_filter|string == s|string %}selected{% endif %}>Semester {{ s }}</option>{% endfor %}
+      </select>
+    </div>
+
+    {% if branch_filter or sem_filter %}
+    <a href="{{ url_for('analytics.attendance_correlation') }}" class="btn btn-outline btn-sm" style="color:var(--red); border-color:rgba(239,68,68,.3); padding:4px 12px;">
+      <i class="fa-solid fa-filter-circle-xmark"></i> Reset
+    </a>
+    {% endif %}
+  </form>
+</div>
+
+{# AI Insight Card #}
+{% if ai_insight %}
+<div class="card mb-20" style="border-color:rgba(0,210,180,.25);">
+  <div class="card-hdr"><div class="card-title"><div class="card-title-icon" style="background:rgba(0,210,180,.1);color:#00d2b4;">🤖</div>AI Correlation Analysis</div></div>
+  <div style="padding:18px 20px;display:grid;grid-template-columns:1fr 1fr;gap:18px;">
+    <div>
+      <div style="font-size:.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Key Finding</div>
+      <p style="color:var(--text);line-height:1.7;font-size:.88rem;">{{ ai_insight.key_insight }}</p>
+      <div style="margin-top:10px;display:flex;gap:10px;flex-wrap:wrap;">
+        <span class="badge {% if ai_insight.correlation_strength=='strong' %}badge-green{% elif ai_insight.correlation_strength=='moderate' %}badge-yellow{% else %}badge-dim{% endif %}">{{ ai_insight.correlation_strength|title }} Correlation</span>
+        <span class="badge badge-blue">Critical threshold: {{ ai_insight.critical_threshold }}</span>
+      </div>
+    </div>
+    <div>
+      <div style="font-size:.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Recommendations</div>
+      {% for r in ai_insight.recommendations %}<div style="display:flex;gap:8px;margin-bottom:6px;"><span style="color:#00d2b4;flex-shrink:0;">→</span><span style="font-size:.82rem;color:var(--text);">{{ r }}</span></div>{% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# Bucket stats #}
+<div class="stats-row mb-20">
+  {% set buckets_order = ['<60','60-75','75-85','85-100'] %}
+  {% set bucket_colors = ['#ef4444','#f97316','#eab308','#22c55e'] %}
+  {% set bucket_labels = ['Critical (<60%)','Low (60-75%)','Good (75-85%)','Excellent (85-100%)'] %}
+  {% for bk, bc, bl in [('<60','#ef4444','Critical (<60%)'),('60-75','#f97316','Low (60-75%)'),('75-85','#eab308','Good (75-85%)'),('85-100','#22c55e','Excellent (85-100%)')] %}
+  {% set bdata = bucket_stats.get(bk, {}) %}
+  <div class="stat-card" style="border-color:{{ bc }}44;">
+    <div class="s-icon" style="font-size:1.2rem;">👥</div>
+    <div class="s-label">{{ bl }}</div>
+    <div class="s-val" style="color:{{ bc }};" data-count="{{ bdata.count or 0 }}">{{ bdata.count or 0 }}</div>
+    <div style="font-size:.75rem;color:var(--text-dim);margin-top:4px;">Avg CGPA: <strong style="color:{{ bc }};">{{ bdata.avg_cgpa or 0 }}</strong></div>
+  </div>
+  {% endfor %}
+</div>
+
+{# Charts #}
+<div class="grid-2 mb-20">
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">📊 Avg CGPA by Attendance Bucket</div></div>
+    <div class="chart-wrap"><canvas id="bucketChart"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">🔵 Attendance vs CGPA Scatter</div></div>
+    <div class="chart-wrap"><canvas id="scatterChart"></canvas></div>
+  </div>
+</div>
+
+{# Students table #}
+{% if students %}
+<div class="card">
+  <div class="card-hdr">
+    <div class="card-title">👥 Students Detail ({{ students|length }})</div>
+    <div class="search-wrap"><span class="search-icon">🔍</span><input type="text" placeholder="Search…" class="f-control f-control-sm" style="width:180px;" oninput="filterTable(this,'attTbl')"/></div>
+  </div>
+  <div class="table-wrap">
+  <table class="spas-table" id="attTbl">
+    <thead><tr><th>Student</th><th>Branch</th><th>Attendance</th><th>CGPA</th><th>Result</th></tr></thead>
+    <tbody>
+    {% for s in students|sort(attribute='attendance') %}
+    <tr>
+      <td><div class="stu-cell"><div class="stu-av">{{ s.name[0] }}</div><div class="stu-name">{{ s.name }}</div></div></td>
+      <td class="text-xs text-dim">{{ s.branch[:20] }}</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="progress-bar" style="width:55px;">
+            <div class="progress-fill" data-width="{{ [s.attendance or 0,100]|min }}%" style="width:0;background:{% if (s.attendance or 0)>=75 %}#22c55e{% elif (s.attendance or 0)>=60 %}#eab308{% else %}#ef4444{% endif %};"></div>
+          </div>
+          <span class="mono text-sm {% if (s.attendance or 0)<60 %}text-red{% elif (s.attendance or 0)<75 %}text-yellow{% else %}text-green{% endif %}">{{ '%.1f'|format(s.attendance or 0) }}%</span>
+        </div>
+      </td>
+      <td><strong class="mono {% if (s.cgpa or 0)>=8 %}text-green{% elif (s.cgpa or 0)>=6 %}text-blue{% elif (s.cgpa or 0)>=5 %}text-yellow{% else %}text-red{% endif %}">{{ '%.2f'|format(s.cgpa or 0) }}</strong></td>
+      <td><span class="badge {% if s.result=='PASS' %}badge-green{% else %}badge-red{% endif %}">{{ s.result or '—' }}</span></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+Chart.defaults.color = '#8b949e';
+Chart.defaults.font.family = "'JetBrains Mono', monospace";
+Chart.defaults.font.size = 11;
+
+const bStats = {{ bucket_stats|tojson }};
+const bkeys = ['<60','60-75','75-85','85-100'];
+const bHasData = bkeys.some(k => bStats[k] && bStats[k].count > 0);
+if(bHasData){
+  new Chart(document.getElementById('bucketChart'),{
+    type:'bar',
+    data:{labels:['<60%','60-75%','75-85%','85-100%'],datasets:[
+      {label:'Avg CGPA',data:bkeys.map(k=>(bStats[k]&&bStats[k].avg_cgpa)||0),backgroundColor:['rgba(239,68,68,.7)','rgba(249,115,22,.7)','rgba(234,179,8,.7)','rgba(34,197,94,.7)'],borderRadius:6,borderWidth:0},
+      {label:'Students',data:bkeys.map(k=>(bStats[k]&&bStats[k].count)||0),backgroundColor:'rgba(99,102,241,.3)',borderRadius:6,borderWidth:0,yAxisID:'y1'}
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8b949e'}}},
+      scales:{y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b949e'},beginAtZero:true,title:{display:true,text:'Avg CGPA',color:'#8b949e'}},
+        y1:{position:'right',grid:{display:false},ticks:{color:'#8b949e'},title:{display:true,text:'Students',color:'#8b949e'}},
+        x:{grid:{display:false},ticks:{color:'#8b949e'}}}}
+  });
+} else {
+  const el = document.getElementById('bucketChart');
+  if(el) el.closest('.chart-wrap').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#484f58;font-size:.8rem;">No attendance data yet</div>';
+}
+
+// BUG-11 FIX: The original `students[:100]` silently dropped students beyond
+// index 100 from the scatter chart while the table below showed all of them.
+// Chart.js scatter handles 500+ points without performance issues.
+// Show all students; add a note in the chart subtitle when the set is large.
+const stds = {{ students|tojson }};
+{% if students|length > 200 %}
+// Note: displaying all {{ students|length }} students in the scatter chart.
+{% endif %}
+const scatterData = stds
+  .filter(s => s.attendance != null && s.cgpa != null)
+  .map(s => ({x: parseFloat(s.attendance)||0, y: parseFloat(s.cgpa)||0, name: s.name || '', enr: s.enrollment_no || ''}));
+if(scatterData.length > 0){
+  new Chart(document.getElementById('scatterChart'),{
+    type:'scatter',
+    data:{datasets:[{label:'Students',data:scatterData,backgroundColor:'rgba(0,210,180,.55)',borderColor:'rgba(0,210,180,.8)',pointRadius:4,pointHoverRadius:7}]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{
+        legend:{display:false},
+        tooltip:{callbacks:{
+          label: ctx => {
+            const p = ctx.raw;
+            return [`${p.name || p.enr}`, `Attendance: ${p.x.toFixed(1)}%`, `CGPA: ${p.y.toFixed(2)}`];
+          }
+        }}
+      },
+      scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b949e'},title:{display:true,text:'Attendance %',color:'#8b949e'},min:0,max:100},
+        y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b949e'},title:{display:true,text:'CGPA',color:'#8b949e'},min:0,max:10}}}
+  });
+}
+</script>
+{% endblock %}

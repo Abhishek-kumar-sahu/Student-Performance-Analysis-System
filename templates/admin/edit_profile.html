@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+{% block title %}My Profile{% endblock %}
+{% block page_title %}// My Profile{% endblock %}
+{% block content %}
+<div style="max-width:580px;">
+<div class="card">
+  <div class="card-hdr" style="margin-bottom:20px;">
+    <div>
+      <div class="sec-title" style="margin-bottom:2px;">My Profile</div>
+      <div class="text-dim text-xs">Update your display name, contact info and profile photo</div>
+    </div>
+  </div>
+
+  <form method="POST" enctype="multipart/form-data">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {# ── Profile Photo ── #}
+    <div style="display:flex;align-items:center;gap:20px;margin-bottom:24px;padding:16px;background:rgba(0,210,180,.05);border:1px solid rgba(0,210,180,.15);border-radius:10px;">
+      <div id="photoPreview" style="width:72px;height:72px;border-radius:50%;background:rgba(0,210,180,.2);display:flex;align-items:center;justify-content:center;font-size:1.6rem;font-weight:700;color:#00d2b4;overflow:hidden;flex-shrink:0;border:2px solid rgba(0,210,180,.3);">
+        {% if user.profile_photo %}
+        <img src="{{ user.profile_photo }}" style="width:100%;height:100%;object-fit:cover;">
+        {% else %}
+        {{ (user.full_name or user.username)[0].upper() }}
+        {% endif %}
+      </div>
+      <div style="flex:1;">
+        <div style="font-size:.82rem;color:#e6edf3;font-weight:600;margin-bottom:4px;">Profile Photo</div>
+        <div style="font-size:.72rem;color:#8b949e;margin-bottom:10px;">JPG, PNG, WEBP · max 512 KB</div>
+        <label for="profile_photo" class="btn-ghost btn-sm" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+          📷 Choose Photo
+        </label>
+        <input type="file" id="profile_photo" name="profile_photo" accept=".jpg,.jpeg,.png,.gif,.webp"
+               style="display:none" onchange="previewPhoto(this)">
+      </div>
+    </div>
+
+    <div class="grid-2">
+      <div class="f-group">
+        <label class="f-label">Full Name</label>
+        <input type="text" name="full_name" class="f-control" value="{{ user.full_name or '' }}" placeholder="Admin Name"/>
+      </div>
+      <div class="f-group">
+        <label class="f-label">Email Address</label>
+        <input type="email" name="email" class="f-control" value="{{ user.email or '' }}" placeholder="admin@college.edu"/>
+      </div>
+    </div>
+    <div class="f-group">
+      <label class="f-label">Phone Number</label>
+      <input type="tel" name="phone" class="f-control" value="{{ user.phone or '' }}" placeholder="10-digit number"/>
+    </div>
+    <div class="f-group">
+      <label class="f-label">Short Bio <span class="text-dim">(max 500 chars)</span></label>
+      <textarea name="bio" class="f-control" rows="3" placeholder="Brief description…" style="resize:vertical;">{{ user.bio or '' }}</textarea>
+    </div>
+
+    <div style="background:rgba(88,166,255,.06);border:1px solid rgba(88,166,255,.12);border-radius:8px;padding:10px 14px;margin-bottom:20px;font-size:.75rem;color:#8b949e;">
+      <strong style="color:#58a6ff;">Username:</strong> <span class="mono cyan">{{ user.username }}</span> &nbsp;·&nbsp;
+      <strong style="color:#58a6ff;">Role:</strong> {{ user.role.title() }}
+    </div>
+
+    <div class="act-row">
+      <button type="submit" class="btn-primary-spas ripple-btn">
+        <span class="btn-ic">💾</span> Save Profile
+      </button>
+      <a href="{{ url_for('admin.dashboard') }}" class="btn-ghost ripple-btn">Cancel</a>
+    </div>
+  </form>
+</div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function previewPhoto(input) {
+  if (!input.files[0]) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    const prev = document.getElementById('photoPreview');
+    prev.innerHTML = `<img src="${e.target.result}" style="width:100%;height:100%;object-fit:cover;">`;
+  };
+  reader.readAsDataURL(input.files[0]);
+}
+</script>
+{% endblock %}

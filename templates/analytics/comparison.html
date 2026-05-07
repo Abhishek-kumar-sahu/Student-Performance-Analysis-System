@@ -1,0 +1,446 @@
+{% extends 'base.html' %}
+{% block title %}Upload Comparison{% endblock %}
+{% block page_title %}// 📊 Data Upload Comparison{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Upload Comparison Analytics</h1>
+    <p>Compare student performance across every data upload — visualize improvements, declines, and trends over time.</p>
+  </div>
+  <div>
+    <a href="{{ url_for('upload.upload_page') }}" class="btn btn-outline btn-sm">📤 Upload New Data</a>
+  </div>
+</div>
+
+{% if not versions %}
+<div class="card" style="border-color:rgba(245,158,11,.2);background:rgba(245,158,11,.03);">
+  <div class="empty-state" style="padding:56px;">
+    <div class="empty-state-icon">📭</div>
+    <h3>No Comparison Data Yet</h3>
+    <p style="max-width:420px;margin:0 auto;">Upload results data at least <strong>twice</strong> to see a comparison. Each upload is snapshotted automatically — your full history will appear here.</p>
+    <a href="{{ url_for('upload.upload_page') }}" class="btn btn-primary" style="margin-top:20px;">📤 Upload Data Now</a>
+  </div>
+</div>
+{% else %}
+
+{# ── Summary KPI row ─────────────────────────────────────────────── #}
+{% set latest = versions[0] %}
+{% set prev   = versions[1] if versions|length > 1 else None %}
+{% set ls = latest.stats or {} %}
+{% set ps = prev.stats if prev else None %}
+
+<div class="stats-row mb-20">
+  <div class="stat-card sc-blue">
+    <div class="s-icon">📋</div>
+    <div class="s-label">Total Uploads</div>
+    <div class="s-val">{{ versions|length }}</div>
+    <div class="s-sub">Versions tracked</div>
+  </div>
+  {# FIX: When no prev exists, use sc-blue (first upload) instead of neutral sc-cyan.
+     Only compare when ps is not None to avoid same-value false neutral. #}
+  <div class="stat-card {% if ps is none %}sc-blue{% elif (ls.avg_cgpa or 0) > (ps.avg_cgpa or 0) %}sc-green{% elif (ls.avg_cgpa or 0) < (ps.avg_cgpa or 0) %}sc-red{% else %}sc-cyan{% endif %}">
+    <div class="s-icon">🎯</div>
+    <div class="s-label">Avg CGPA (Latest)</div>
+    <div class="s-val">{{ "%.2f"|format(ls.avg_cgpa or 0) }}</div>
+    <div class="s-sub">
+      {% if ps is not none %}
+        {% set d = (ls.avg_cgpa or 0) - (ps.avg_cgpa or 0) %}
+        {% if d > 0 %}▲ +{{ "%.2f"|format(d) }} vs prev{% elif d < 0 %}▼ {{ "%.2f"|format(d) }} vs prev{% else %}= No change{% endif %}
+      {% else %}First upload{% endif %}
+    </div>
+  </div>
+  <div class="stat-card {% if ps is none %}sc-blue{% elif (ls.avg_att or 0) > (ps.avg_att or 0) %}sc-green{% elif (ls.avg_att or 0) < (ps.avg_att or 0) %}sc-red{% else %}sc-cyan{% endif %}">
+    <div class="s-icon">📅</div>
+    <div class="s-label">Avg Attendance (Latest)</div>
+    <div class="s-val">{{ "%.1f"|format(ls.avg_att or 0) }}%</div>
+    <div class="s-sub">
+      {% if ps is not none %}
+        {% set d = (ls.avg_att or 0) - (ps.avg_att or 0) %}
+        {% if d > 0 %}▲ +{{ "%.1f"|format(d) }}% vs prev{% elif d < 0 %}▼ {{ "%.1f"|format(d) }}% vs prev{% else %}= No change{% endif %}
+      {% else %}First upload{% endif %}
+    </div>
+  </div>
+  <div class="stat-card {% if ps is none %}sc-blue{% elif (ls.pass_rate or 0) > (ps.pass_rate or 0) %}sc-green{% elif (ls.pass_rate or 0) < (ps.pass_rate or 0) %}sc-red{% else %}sc-purple{% endif %}">
+    <div class="s-icon">✅</div>
+    <div class="s-label">Pass Rate (Latest)</div>
+    <div class="s-val">{{ "%.1f"|format(ls.pass_rate or 0) }}%</div>
+    <div class="s-sub">
+      {% if ps is not none %}
+        {% set d = (ls.pass_rate or 0) - (ps.pass_rate or 0) %}
+        {% if d > 0 %}▲ +{{ "%.1f"|format(d) }}% vs prev{% elif d < 0 %}▼ {{ "%.1f"|format(d) }}% vs prev{% else %}= No change{% endif %}
+      {% else %}First upload{% endif %}
+    </div>
+  </div>
+  <div class="stat-card {% if ps is none %}sc-blue{% elif (ls.at_risk or 0) < (ps.at_risk or 0) %}sc-green{% elif (ls.at_risk or 0) > (ps.at_risk or 0) %}sc-red{% else %}sc-yellow{% endif %}">
+    <div class="s-icon">⚠️</div>
+    <div class="s-label">At-Risk Students</div>
+    <div class="s-val">{{ ls.at_risk or 0 }}</div>
+    <div class="s-sub">
+      {% if ps is not none %}
+        {% set d = (ls.at_risk or 0) - (ps.at_risk or 0) %}
+        {% if d < 0 %}▼ {{ d }} vs prev (better){% elif d > 0 %}▲ +{{ d }} vs prev{% else %}= No change{% endif %}
+      {% else %}First upload{% endif %}
+    </div>
+  </div>
+</div>
+
+{# ── Trend charts ───────────────────────────────────────────────────── #}
+<div class="grid-2 mb-20">
+  <div class="card">
+    <div class="card-hdr" style="margin-bottom:14px;">
+      <div class="card-title">
+        <div class="card-title-icon" style="background:rgba(0,255,255,.1);color:var(--accent);">📈</div>
+        CGPA & Attendance Trend Across Uploads
+      </div>
+    </div>
+    <div class="chart-wrap" style="height:280px;"><canvas id="trendChart"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-hdr" style="margin-bottom:14px;">
+      <div class="card-title">
+        <div class="card-title-icon" style="background:rgba(34,197,94,.1);color:var(--green);">✅</div>
+        Pass Rate & At-Risk Count Across Uploads
+      </div>
+    </div>
+    <div class="chart-wrap" style="height:280px;"><canvas id="passRiskChart"></canvas></div>
+  </div>
+</div>
+
+{# ── Upload-by-upload comparison bars ───────────────────────────────── #}
+{% if versions|length >= 2 %}
+<div class="card mb-20">
+  <div class="card-hdr" style="margin-bottom:14px;">
+    <div class="card-title">
+      <div class="card-title-icon" style="background:rgba(88,166,255,.1);color:var(--blue);">📊</div>
+      Side-by-Side Upload Comparison
+    </div>
+    <span class="badge badge-blue">Latest vs Previous</span>
+  </div>
+  <div class="chart-wrap" style="height:240px;"><canvas id="compareBarChart"></canvas></div>
+</div>
+{% endif %}
+
+{# ── Per-student diff table ─────────────────────────────────────────── #}
+{% if student_diff %}
+<div class="card mb-20">
+  <div class="card-hdr" style="margin-bottom:14px;">
+    <div class="card-title">
+      <div class="card-title-icon" style="background:rgba(168,85,247,.1);color:var(--purple);">👤</div>
+      Student-Level Change — Latest vs Previous Upload
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span class="badge badge-green">▲ Improved: {{ student_diff | selectattr('status','equalto','improved') | list | length }}</span>
+      <span class="badge badge-yellow">= Stable: {{ student_diff | selectattr('status','equalto','stable') | list | length }}</span>
+      <span class="badge badge-red">▼ Declined: {{ student_diff | selectattr('status','equalto','declined') | list | length }}</span>
+    </div>
+  </div>
+
+  {# Filter tabs #}
+  <div style="padding:0 0 14px;display:flex;gap:8px;flex-wrap:wrap;">
+    <button class="btn btn-sm btn-primary" onclick="filterDiff('all',this)">All Students</button>
+    <button class="btn btn-sm btn-ghost" onclick="filterDiff('declined',this)">▼ Declined</button>
+    <button class="btn btn-sm btn-ghost" onclick="filterDiff('improved',this)">▲ Improved</button>
+    <button class="btn btn-sm btn-ghost" onclick="filterDiff('stable',this)">= Stable</button>
+    <input type="text" class="f-control" style="max-width:200px;padding:5px 10px;font-size:.78rem;" placeholder="Search student…" oninput="searchDiff(this.value)">
+  </div>
+
+  <div class="table-wrap">
+    <table class="spas-table" id="diffTable">
+      <thead>
+        <tr>
+          <th>Student</th>
+          <th>Branch</th>
+          <th>Old CGPA</th>
+          <th>New CGPA</th>
+          <th>Δ CGPA</th>
+          <th>Old Att%</th>
+          <th>New Att%</th>
+          <th>Δ Att%</th>
+          <th>Result Change</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for s in student_diff %}
+        <tr class="diff-row" data-status="{{ s.status }}" data-name="{{ s.name|lower }}" data-enr="{{ s.enrollment_no|lower }}">
+          <td>
+            <strong class="text-sm">{{ s.name }}</strong><br>
+            <span class="mono text-dim text-xs">{{ s.enrollment_no }}</span>
+          </td>
+          <td class="text-sm text-dim">{{ s.branch[:20] if s.branch else '—' }}</td>
+          <td class="mono {% if s.old_cgpa >= 7 %}text-green{% elif s.old_cgpa >= 5 %}text-yellow{% else %}text-red{% endif %}">
+            {{ "%.2f"|format(s.old_cgpa) }}
+          </td>
+          <td class="mono {% if s.new_cgpa >= 7 %}text-green{% elif s.new_cgpa >= 5 %}text-yellow{% else %}text-red{% endif %}">
+            {{ "%.2f"|format(s.new_cgpa) }}
+          </td>
+          <td class="mono fw700 {% if s.diff_cgpa > 0 %}text-green{% elif s.diff_cgpa < 0 %}text-red{% else %}text-dim{% endif %}">
+            {{ '+' if s.diff_cgpa > 0 else '' }}{{ "%.2f"|format(s.diff_cgpa) }}
+          </td>
+          <td class="mono text-sm">{{ "%.1f"|format(s.old_att) }}%</td>
+          <td class="mono text-sm {% if s.new_att >= 75 %}text-green{% elif s.new_att >= 60 %}text-yellow{% else %}text-red{% endif %}">
+            {{ "%.1f"|format(s.new_att) }}%
+          </td>
+          <td class="mono text-sm {% if s.diff_att > 0 %}text-green{% elif s.diff_att < 0 %}text-red{% else %}text-dim{% endif %}">
+            {{ '+' if s.diff_att > 0 else '' }}{{ "%.1f"|format(s.diff_att) }}%
+          </td>
+          <td>
+            {% if s.old_result != s.new_result %}
+              <span class="badge badge-dim text-xs">{{ s.old_result }}</span>
+              <span style="color:var(--text-dim);margin:0 3px;">→</span>
+              <span class="badge {% if s.new_result == 'PASS' %}badge-green{% else %}badge-red{% endif %} text-xs">{{ s.new_result }}</span>
+            {% else %}
+              <span class="badge {% if s.new_result == 'PASS' %}badge-green{% else %}badge-red{% endif %} text-xs">{{ s.new_result }}</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if s.status == 'improved' %}
+              <span class="badge badge-green">▲ Improved</span>
+            {% elif s.status == 'declined' %}
+              <span class="badge badge-red">▼ Declined</span>
+            {% else %}
+              <span class="badge badge-dim">= Stable</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{# ── Version history log ────────────────────────────────────────────── #}
+<div class="card">
+  <div class="card-hdr" style="margin-bottom:14px;">
+    <div class="card-title">
+      <div class="card-title-icon" style="background:rgba(0,255,255,.1);color:var(--accent);">🕐</div>
+      Upload Version History
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table class="spas-table">
+      <thead>
+        <tr><th>Version</th><th>Date</th><th>Uploaded By</th><th>Students</th><th>Avg CGPA</th><th>Avg Att%</th><th>Pass Rate</th><th>At-Risk</th></tr>
+      </thead>
+      <tbody>
+        {% for v in versions %}
+        {% set s = v.stats or {} %}
+        <tr>
+          <td><span class="badge badge-purple mono">v{{ v.version_no }}</span></td>
+          <td class="text-sm text-dim">{{ v.created_at[:16] if v.created_at else '—' }}</td>
+          <td class="text-sm">{{ v.uploaded_by_name }}</td>
+          <td class="mono text-sm">{{ s.get('total', v.row_count) }}</td>
+          <td class="mono fw700 {% if s.get('avg_cgpa',0) >= 7 %}text-green{% elif s.get('avg_cgpa',0) >= 5 %}text-yellow{% else %}text-red{% endif %}">
+            {{ "%.2f"|format(s.get('avg_cgpa', 0)) }}
+          </td>
+          <td class="mono text-sm {% if s.get('avg_att',0) >= 75 %}text-green{% else %}text-red{% endif %}">
+            {{ "%.1f"|format(s.get('avg_att', 0)) }}%
+          </td>
+          <td class="mono text-sm {% if s.get('pass_rate',0) >= 80 %}text-green{% elif s.get('pass_rate',0) >= 60 %}text-yellow{% else %}text-red{% endif %}">
+            {{ "%.1f"|format(s.get('pass_rate', 0)) }}%
+          </td>
+          <td>
+            <span class="badge {% if s.get('at_risk',0) == 0 %}badge-green{% elif s.get('at_risk',0) < 5 %}badge-yellow{% else %}badge-red{% endif %}">
+              {{ s.get('at_risk', 0) }}
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+Chart.defaults.color = '#8b949e';
+Chart.defaults.font.family = "'JetBrains Mono', monospace";
+Chart.defaults.font.size = 11;
+
+const chartVersions = {{ chart_versions | tojson }};
+
+if(chartVersions && chartVersions.length > 0){
+  // BUG-5 FIX: Chart.js v4 does NOT render \n as a line break in tick labels —
+  // it displays the literal characters. Multi-line labels need an array instead.
+  const labels = chartVersions.map(v => [`v${v.version_no}`, (v.created_at||'').substring(0,10)]);
+  const avgCgpas = chartVersions.map(v => parseFloat((v.stats||{}).avg_cgpa)||0);
+  const avgAtts  = chartVersions.map(v => parseFloat((v.stats||{}).avg_att)||0);
+  const passRates= chartVersions.map(v => parseFloat((v.stats||{}).pass_rate)||0);
+  const atRisks  = chartVersions.map(v => parseInt((v.stats||{}).at_risk)||0);
+
+  // Chart 1 — CGPA + Attendance trend
+  new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Avg CGPA',
+          data: avgCgpas,
+          borderColor: '#00ffcc',
+          backgroundColor: 'rgba(0,255,204,.08)',
+          borderWidth: 2.5,
+          pointRadius: 6,
+          pointHoverRadius: 8,
+          pointBackgroundColor: '#00ffcc',
+          fill: true,
+          tension: 0.35,
+          yAxisID: 'y',
+        },
+        {
+          label: 'Avg Attendance %',
+          data: avgAtts,
+          borderColor: '#58a6ff',
+          backgroundColor: 'rgba(88,166,255,.06)',
+          borderWidth: 2,
+          pointRadius: 5,
+          pointBackgroundColor: '#58a6ff',
+          fill: true,
+          tension: 0.35,
+          yAxisID: 'y1',
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { color: '#8b949e', boxWidth: 12 } } },
+      scales: {
+        y:  { position: 'left',  min: 0, max: 10,  grid: { color:'rgba(255,255,255,.04)' }, ticks: { color:'#8b949e' }, title: { display:true, text:'CGPA', color:'#8b949e' } },
+        y1: { position: 'right', min: 0, max: 100, grid: { display: false }, ticks: { color:'#8b949e' }, title: { display:true, text:'Attendance %', color:'#8b949e' } },
+        x:  { grid: { display: false }, ticks: { color:'#8b949e' } }
+      }
+    }
+  });
+
+  // Chart 2 — Pass rate + At-risk
+  new Chart(document.getElementById('passRiskChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Pass Rate %',
+          data: passRates,
+          borderColor: '#22c55e',
+          backgroundColor: 'rgba(34,197,94,.08)',
+          borderWidth: 2.5,
+          pointRadius: 6,
+          pointBackgroundColor: '#22c55e',
+          fill: true,
+          tension: 0.35,
+          yAxisID: 'y',
+        },
+        {
+          label: 'At-Risk Students',
+          data: atRisks,
+          borderColor: '#ef4444',
+          backgroundColor: 'rgba(239,68,68,.07)',
+          borderWidth: 2,
+          pointRadius: 5,
+          pointBackgroundColor: '#ef4444',
+          borderDash: [5, 3],
+          fill: true,
+          tension: 0.35,
+          yAxisID: 'y1',
+        }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: { legend: { labels: { color: '#8b949e', boxWidth: 12 } } },
+      scales: {
+        y:  { position: 'left',  min: 0, max: 100, grid: { color:'rgba(255,255,255,.04)' }, ticks: { color:'#8b949e', callback: v=>v+'%' }, title: { display:true, text:'Pass Rate %', color:'#8b949e' } },
+        y1: { position: 'right', min: 0,           grid: { display: false },                ticks: { color:'#8b949e' }, title: { display:true, text:'At-Risk Count', color:'#8b949e' } },
+        x:  { grid: { display: false }, ticks: { color:'#8b949e' } }
+      }
+    }
+  });
+
+  // Chart 3 — Grouped bar (latest vs previous) if >=2 versions
+  if(chartVersions.length >= 2){
+    const latest = chartVersions[chartVersions.length - 1];
+    const prev   = chartVersions[chartVersions.length - 2];
+    const ls = latest.stats || {};
+    const ps = prev.stats || {};
+    new Chart(document.getElementById('compareBarChart'), {
+      type: 'bar',
+      data: {
+        // BUG-9 FIX: The label said '×1' but data is actually ×10 scaled to share
+        // a 0-100 axis with percentages. Clarify label and ensure tooltip always
+        // divides back correctly by checking the dataset label, not just dataIndex.
+        labels: ['Avg CGPA (×10 scaled)', 'Avg Attendance %', 'Pass Rate %'],
+        datasets: [
+          {
+            label: `v${prev.version_no} (${(prev.created_at||'').substring(0,10)})`,
+            data: [
+              parseFloat(ps.avg_cgpa||0) * 10,
+              parseFloat(ps.avg_att||0),
+              parseFloat(ps.pass_rate||0)
+            ],
+            backgroundColor: 'rgba(88,166,255,.5)',
+            borderColor: '#58a6ff',
+            borderWidth: 1.5,
+            borderRadius: 6,
+          },
+          {
+            label: `v${latest.version_no} (${(latest.created_at||'').substring(0,10)}) — Latest`,
+            data: [
+              parseFloat(ls.avg_cgpa||0) * 10,
+              parseFloat(ls.avg_att||0),
+              parseFloat(ls.pass_rate||0)
+            ],
+            backgroundColor: 'rgba(0,255,204,.5)',
+            borderColor: '#00ffcc',
+            borderWidth: 1.5,
+            borderRadius: 6,
+          }
+        ]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { labels: { color:'#8b949e', boxWidth:12 } },
+          tooltip: {
+            callbacks: {
+              label: function(ctx) {
+                const raw = ctx.raw;
+                // First bar group = CGPA (scaled ×10 for display; show real value)
+                if(ctx.dataIndex === 0) return ` CGPA: ${(raw/10).toFixed(2)}`;
+                return ` ${ctx.dataset.label.split('(')[0].trim()}: ${raw.toFixed(1)}%`;
+              }
+            }
+          }
+        },
+        scales: {
+          y: { grid: { color:'rgba(255,255,255,.04)' }, ticks: { color:'#8b949e' }, beginAtZero: true, max: 100 },
+          x: { grid: { display:false }, ticks: { color:'#8b949e' } }
+        }
+      }
+    });
+  }
+}
+
+// Filter + search for student diff table
+function filterDiff(status, btn){
+  document.querySelectorAll('[onclick^="filterDiff"]').forEach(b=>b.className='btn btn-sm btn-ghost');
+  if(btn) btn.className='btn btn-sm btn-primary';
+  document.querySelectorAll('.diff-row').forEach(r=>{
+    r.style.display = (status==='all' || r.dataset.status===status) ? '' : 'none';
+  });
+}
+function searchDiff(q){
+  const lq = q.toLowerCase();
+  document.querySelectorAll('.diff-row').forEach(r=>{
+    const match = r.dataset.name.includes(lq) || r.dataset.enr.includes(lq);
+    r.style.display = match ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

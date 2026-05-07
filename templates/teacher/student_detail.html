@@ -1,0 +1,338 @@
+{% extends 'base.html' %}
+{% block title %}{{ student.name }}{% endblock %}
+{% block page_title %}// Student Detail — {{ student.name }}{% endblock %}
+
+{% block content %}
+{% set latest = semesters[-1] if semesters else {} %}
+
+{# ── Student Header ──────────────────────────────────────────────── #}
+<div class="card mb-16" style="border-color:rgba(0,255,255,.2);">
+  <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+    <div class="cgpa-ring">
+      <div class="cgpa-val">{{ '%.2f'|format(latest.cgpa or 0) }}</div>
+      <div class="cgpa-lbl">CGPA</div>
+    </div>
+    <div style="flex:1;">
+      <div style="font-size:1.3rem;font-weight:800;color:#fff;">{{ student.name }}</div>
+      <div class="mono cyan" style="font-size:.8rem;margin-bottom:6px;">{{ student.enrollment_no }}</div>
+      <div style="display:flex;gap:12px;flex-wrap:wrap;font-size:.75rem;color:var(--text-dim);">
+        <span><i class="fa-solid fa-graduation-cap"></i> {{ student.programme }} — {{ student.branch }}</span>
+        <span><i class="fa-solid fa-book-open"></i> Sem {{ student.current_semester }}</span>
+        <span><i class="fa-solid fa-venus-mars"></i> {{ student.gender or '—' }}</span>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <a href="{{ url_for('teacher.student_pdf', sid=student.id) }}" class="btn-cyan"><i class="fa-solid fa-file-pdf"></i> Download PDF</a>
+      <button class="btn-yellow btn-sm" onclick="openResetModal({{ student.id }},'{{ student.name }}','{{ url_for('teacher.reset_student_password', sid=student.id) }}')">
+        <i class="fa-solid fa-key"></i> Reset Password
+      </button>
+      <form method="POST" action="{{ url_for('teacher.delete_student', sid=student.id) }}" style="display:inline;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button class="btn-danger btn-sm" style="width:100%;"
+                onclick="if(!confirmDelete('Permanently delete {{ student.name }}?'))event.preventDefault()">
+          <i class="fa-solid fa-trash-can"></i> Delete Student
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# ── KPI Stats ───────────────────────────────────────────────────── #}
+<div class="stats-row">
+  <div class="stat-card sc-cyan"><div class="s-label">CGPA</div><div class="s-val" data-count="{{ '%.2f'|format(latest.cgpa or 0) }}">{{ '%.2f'|format(latest.cgpa or 0) }}</div></div>
+  <div class="stat-card sc-green"><div class="s-label">SGPA</div><div class="s-val" data-count="{{ '%.2f'|format(latest.sgpa or 0) }}">{{ '%.2f'|format(latest.sgpa or 0) }}</div></div>
+  <div class="stat-card sc-blue"><div class="s-label">Attendance</div><div class="s-val">{{ '%.1f'|format(latest.attendance or 0) }}%</div></div>
+  <div class="stat-card {% if (latest.backlog_count or 0)>0 %}sc-red{% else %}sc-green{% endif %}">
+    <div class="s-label">Backlogs</div><div class="s-val">{{ latest.backlog_count or 0 }}</div>
+  </div>
+</div>
+
+{# ── ML Prediction ───────────────────────────────────────────────── #}
+<div class="ml-card mb-16">
+  <div class="sec-title" style="color:var(--purple);"><i class="fa-solid fa-robot"></i> AI Performance Prediction</div>
+  <div class="ml-label" style="color:{{ ml_pred.color }};">{{ ml_pred.label }}</div>
+  <div class="ml-bar"><div class="ml-fill" style="width:{{ ml_pred.confidence }}%;background:{{ ml_pred.color }};"></div></div>
+  <div style="font-size:.72rem;color:var(--text-dim);margin-top:6px;">Confidence: {{ ml_pred.confidence }}%</div>
+</div>
+
+{# ── Semester breakdown ───────────────────────────────────────────── #}
+{% for sem in semesters %}
+<div class="card mb-16">
+  <div class="sem-header" style="margin:-20px -20px 16px;border-radius:var(--radius) var(--radius) 0 0;">
+    <span class="sem-title">Semester {{ sem.semester_no }}</span>
+    <div class="sem-meta">
+      <span>SGPA: <strong>{{ '%.2f'|format(sem.sgpa or 0) }}</strong></span>
+      <span>CGPA: <strong>{{ '%.2f'|format(sem.cgpa or 0) }}</strong></span>
+      <span>Att: <strong>{{ '%.1f'|format(sem.attendance or 0) }}%</strong></span>
+      <span>
+        <span class="badge {% if sem.result=='PASS' %}badge-green{% else %}badge-red{% endif %}">{{ sem.result or '—' }}</span>
+      </span>
+    </div>
+  </div>
+  <div style="overflow-x:auto;">
+    <table class="spas-table">
+      <thead>
+        <tr><th>Subject</th><th>Type</th><th>Internal</th><th>External</th><th>Total</th><th>Grade</th><th>GP</th><th>Att%</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+        {% for s in sem.subjects %}
+        <tr>
+          <td><strong>{{ s.subject_name }}</strong></td>
+          <td><span class="badge badge-dim" style="font-size:.6rem;">{{ s.subject_type or 'Theory' }}</span></td>
+          <td class="mono">{{ '%.1f'|format(s.internal_marks or 0) }}</td>
+          <td class="mono">{{ '%.1f'|format(s.external_marks or 0) }}</td>
+          <td class="mono"><strong>{{ '%.1f'|format(s.total_marks or 0) }}/{{ s.max_marks|int }}</strong></td>
+          <td class="mono fw700 grade-{{ s.grade.replace('+','p') if s.grade else 'F' }}">{{ s.grade or '—' }}</td>
+          <td class="mono">{{ '%.1f'|format(s.grade_point or 0) }}</td>
+          <td>
+            <span style="color:{% if (s.attendance_pct or 0)<75 %}var(--red){% else %}var(--green){% endif %};">
+              {{ '%.0f'|format(s.attendance_pct or 0) }}%
+            </span>
+          </td>
+          <td><span class="badge {% if s.status=='PASS' %}badge-green{% else %}badge-red{% endif %}">{{ s.status or '—' }}</span></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endfor %}
+
+
+{# ══════════════════════════════════════════════════════
+   SHAP-STYLE AI EXPLANATION PANEL (Blueprint Phase 7+11.5)
+   Shows why the student is at-risk based on key factors
+══════════════════════════════════════════════════════ #}
+{% if semesters %}
+{% set latest = semesters[-1] %}
+{% set cgpa = latest.cgpa or 0 %}
+{% set att  = latest.attendance or 0 %}
+{% set backlogs = semesters | sum(attribute='backlog_count') %}
+{% set trend = ((semesters[-1].sgpa or 0) - (semesters[-2].sgpa or 0)) if semesters|length >= 2 else 0 %}
+<div class="card mb-16" style="border-color:rgba(168,85,247,.25);">
+  <div class="card-hdr" style="margin-bottom:16px;">
+    <div class="card-title">
+      <div class="card-title-icon" style="background:rgba(168,85,247,.1);color:#a855f7;"><i class="fa-solid fa-brain"></i></div>
+      AI Risk Explanation — Why This Student is {{ ml_pred.label }}
+    </div>
+    <span class="text-dim text-sm">Feature contribution to risk score — <span style="color:#ef4444;">■ increases risk</span> · <span style="color:#10b981;">■ decreases risk</span></span>
+  </div>
+
+  {# SHAP-style horizontal bar rows #}
+  {% set features = [
+    ('CGPA (' ~ '%.2f'|format(cgpa) ~ ')', (10 - cgpa) / 10, cgpa < 6),
+    ('Attendance (' ~ '%.1f'|format(att) ~ '%)', (75 - att) / 75 if att < 75 else (att - 75) / 25, att < 75),
+    ('Total Backlogs (' ~ backlogs|string ~ ')', backlogs / 5, backlogs > 0),
+    ('SGPA Trend (' ~ ('+' if trend >= 0 else '') ~ '%.2f'|format(trend) ~ ')', trend|abs / 3, trend < 0),
+    ('Semester Progress (Sem ' ~ (semesters|length)|string ~ ')', semesters|length / 8, semesters|length < 4),
+  ] %}
+  <div class="shap-bar-wrap">
+  {% for label, raw_val, is_risk in features %}
+  {% set pct = [raw_val * 100, 100]|min %}
+  <div class="shap-row">
+    <div class="shap-label">{{ label }}</div>
+    <div class="shap-track">
+      <div class="{% if is_risk %}shap-fill-pos{% else %}shap-fill-neg{% endif %}"
+           style="width:{{ '%.0f'|format(pct) }}%"></div>
+    </div>
+    <div class="shap-val {% if is_risk %}shap-val-pos{% else %}shap-val-neg{% endif %}">
+      {% if is_risk %}▲{% else %}▼{% endif %} {{ '%.0f'|format(pct) }}%
+    </div>
+  </div>
+  {% endfor %}
+  </div>
+
+  <div style="margin-top:12px;padding:12px;background:rgba(168,85,247,.06);border-radius:8px;font-size:.75rem;color:#8b949e;line-height:1.7;">
+    <strong style="color:#a855f7;">📌 Interpretation:</strong>
+    Red bars indicate factors <em>increasing</em> risk. Green bars show protective factors.
+    The wider the bar, the stronger that factor's contribution to the overall risk score.
+    CGPA below 6.0, attendance below 75%, and backlogs are the primary risk indicators per Blueprint Phase 6.
+  </div>
+</div>
+{% endif %}
+
+{# ══════════════════════════════════════════════════════
+   INTERVENTION LOGGING PANEL (Blueprint Phase 11.5)
+   Teacher logs remedial actions for at-risk students
+══════════════════════════════════════════════════════ #}
+<div class="card mb-16" style="border-color:rgba(245,158,11,.2);">
+  <div class="card-hdr" style="margin-bottom:16px;">
+    <div class="card-title">
+      <div class="card-title-icon" style="background:rgba(245,158,11,.1);color:#f59e0b;"><i class="fa-solid fa-bullseye"></i></div>
+      Log Intervention / Remedial Action
+    </div>
+    <span class="text-dim text-sm">Record actions taken to support this student</span>
+  </div>
+  <form method="POST" action="{{ url_for('interventions.log_intervention', student_id=student.id) }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px;">
+      <div class="f-group">
+        <label class="f-label">Intervention Type *</label>
+        <select name="intervention_type" class="f-control" required>
+          <option value="">— Select Type —</option>
+          {% for t in ['Academic Counseling','Parent/Guardian Contact','Tutoring / Extra Classes',
+                       'Attendance Warning','Performance Review Meeting','Scholarship/Aid Referral',
+                       'Mentorship Assignment','Written Warning','Other'] %}
+          <option value="{{ t }}">{{ t }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="f-group">
+        <label class="f-label">Status</label>
+        <select name="status" class="f-control">
+          <option value="Pending">Pending</option>
+          <option value="In Progress">In Progress</option>
+          <option value="Completed">Completed</option>
+          <option value="Cancelled">Cancelled</option>
+        </select>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:2fr 1fr;gap:16px;margin-bottom:16px;">
+      <div class="f-group">
+        <label class="f-label">Notes / Description</label>
+        <textarea name="notes" class="f-control" rows="2"
+                  placeholder="Describe the action taken, conversation summary, etc."></textarea>
+      </div>
+      <div class="f-group">
+        <label class="f-label">Follow-up Date (optional)</label>
+        <input type="date" name="follow_up_date" class="f-control">
+      </div>
+    </div>
+    <button type="submit" class="btn-yellow"><i class="fa-solid fa-pen-to-square"></i> Log Intervention</button>
+    <span style="font-size:.72rem;color:#8b949e;margin-left:12px;">Student will receive an in-app notification</span>
+  </form>
+</div>
+
+{# ── Intervention History ──────────────────────────────────────────── #}
+<div class="card mb-16">
+  <div class="card-hdr" style="margin-bottom:16px;">
+    <div class="card-title">
+      <div class="card-title-icon" style="background:rgba(59,130,246,.1);color:#3b82f6;"><i class="fa-solid fa-clipboard-list"></i></div>
+      Intervention History
+    </div>
+    <button class="btn-dim btn-sm" onclick="loadInterventions()"><i class="fa-solid fa-arrows-rotate"></i> Refresh</button>
+  </div>
+  <div id="interventionList">
+    <div style="text-align:center;padding:20px;color:#484f58;font-size:.8rem;">Loading…</div>
+  </div>
+</div>
+
+<div class="d-flex gap-12">
+  <a href="{{ url_for('teacher.dashboard') }}" class="btn-ghost">← Back to Dashboard</a>
+  <a href="{{ url_for('teacher.student_pdf', sid=student.id) }}" class="btn-cyan"><i class="fa-solid fa-file-pdf"></i> Download PDF Report</a>
+</div>
+
+{# ── Password Reset Modal ─────────────────────────────────────────── #}
+<div id="resetModal" class="modal-overlay" style="display:none;align-items:center;justify-content:center;">
+  <div class="modal-box">
+    <div class="sec-title" id="resetModalTitle">Reset Password</div>
+    <form id="resetForm" method="POST">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="f-group">
+        <label class="f-label">New Password (min. 6 chars)</label>
+        <div style="position:relative;">
+          <input type="password" name="new_password" id="newPwdInput" class="f-control"
+                 placeholder="Enter new password" minlength="6" required style="padding-right:44px;"/>
+          <button type="button" class="pwd-toggle" onclick="togglePwd('newPwdInput',this)"><i class="fa-solid fa-eye"></i></button>
+        </div>
+      </div>
+      <div class="d-flex gap-12">
+        <button type="submit" class="btn-cyan">Set Password</button>
+        <button type="button" class="btn-ghost" onclick="closeResetModal()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const STUDENT_ID = {{ student.id }};
+const STATUS_CLASSES = {
+  'Pending': 'badge-pending', 'In Progress': 'badge-inprogress',
+  'Completed': 'badge-completed', 'Cancelled': 'badge-cancelled'
+};
+
+async function loadInterventions() {
+  const list = document.getElementById('interventionList');
+  list.innerHTML = '<div style="text-align:center;padding:20px;color:#484f58;font-size:.8rem;">Loading…</div>';
+  try {
+    function escHtml(s){
+  if(s===null||s===undefined)return'';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+    const r = await fetch(`/interventions/for-student/${STUDENT_ID}`);
+    const items = await r.json();
+    if (!items.length) {
+      list.innerHTML = '<div style="text-align:center;padding:24px;color:#484f58;font-size:.8rem;">No interventions logged yet.</div>';
+      return;
+    }
+    list.innerHTML = items.map(iv => `
+      <div class="intervention-card">
+        <div class="iv-header">
+          <div>
+            <div class="iv-type">${escHtml(iv.intervention_type)}</div>
+            <div class="iv-meta">
+              Logged by <strong>${escHtml(iv.teacher_name || 'Unknown')}</strong> ·
+              ${iv.created_at ? escHtml(iv.created_at.substring(0,10)) : ''}
+              ${iv.follow_up_date ? ' · Follow-up: <strong>' + escHtml(iv.follow_up_date) + '</strong>' : ''}
+            </div>
+          </div>
+          <div style="display:flex;gap:6px;align-items:center;flex-shrink:0;">
+            <span class="badge ${STATUS_CLASSES[iv.status]||'badge-dim'}">${escHtml(iv.status)}</span>
+          </div>
+        </div>
+        ${iv.notes ? `<div class="iv-notes"><i class="fa-solid fa-note-sticky" style="color:var(--yellow);margin-right:5px;"></i> ${escHtml(iv.notes)}</div>` : ''}
+        <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+          <form method="POST" action="/interventions/${Number(iv.id)}/update" style="display:flex;gap:6px;align-items:center;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <select name="status" class="f-control" style="padding:3px 8px;font-size:.7rem;height:auto;">
+              ${['Pending','In Progress','Completed','Cancelled'].map(s =>
+                `<option value="${escHtml(s)}" ${s===iv.status?'selected':''}>${escHtml(s)}</option>`).join('')}
+            </select>
+            <button type="submit" class="btn-dim btn-sm" style="font-size:.7rem;">Update</button>
+          </form>
+          <form method="POST" action="/interventions/${Number(iv.id)}/delete"
+                onsubmit="return confirm('Delete this intervention?')">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="btn-danger btn-sm" style="font-size:.7rem;padding:3px 8px;"><i class="fa-solid fa-trash-can"></i></button>
+          </form>
+        </div>
+      </div>`).join('');
+  } catch(e) {
+    list.innerHTML = '<div style="color:#ef4444;padding:16px;font-size:.8rem;">Failed to load interventions.</div>';
+  }
+}
+
+loadInterventions();
+
+// ── Reset Password Modal ──────────────────────────────────────────
+function openResetModal(sid, name, actionUrl) {
+  document.getElementById('resetModalTitle').textContent = 'Reset Password — ' + name;
+  document.getElementById('resetForm').action = actionUrl;
+  document.getElementById('newPwdInput').value = '';
+  const overlay = document.getElementById('resetModal');
+  overlay.style.display = 'flex';
+  setTimeout(() => overlay.classList.add('active'), 10);
+  document.getElementById('newPwdInput').focus();
+}
+
+function closeResetModal() {
+  const overlay = document.getElementById('resetModal');
+  overlay.classList.remove('active');
+  setTimeout(() => { overlay.style.display = 'none'; }, 260);
+}
+
+function togglePwd(inputId, btn) {
+  const inp = document.getElementById(inputId);
+  if (!inp) return;
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  btn.innerHTML = inp.type === 'password' ? '<i class="fa-solid fa-eye"></i>' : '<i class="fa-solid fa-eye-slash"></i>';
+}
+
+// Close on overlay click
+document.getElementById('resetModal').addEventListener('click', function(e) {
+  if (e.target === this) closeResetModal();
+});
+</script>
+{% endblock %}

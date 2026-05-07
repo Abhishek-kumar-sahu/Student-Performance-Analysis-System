@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+{% block title %}Edit Profile{% endblock %}
+{% block page_title %}// <i class="fa-solid fa-pen-nib"></i> Edit Profile{% endblock %}
+{% block content %}
+
+<div style="max-width:700px; margin:0 auto;">
+  <div class="card" style="border-color:rgba(0,255,255,.2); box-shadow:0 0 30px rgba(0,255,255,.05);">
+    <div class="sec-title mb-24" style="display:flex; align-items:center; gap:10px; font-size:1rem;">
+      <i class="fa-solid fa-user-pen"></i> Update Your Information
+    </div>
+
+    <form method="POST" action="{{ url_for('student.edit_profile') }}" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+      {# ── Profile Photo Section ── #}
+      <div class="f-group mb-24" style="padding:15px; background:rgba(0,255,255,.03); border-radius:12px; border:1px solid rgba(0,255,255,.1);">
+        <label class="f-label">Profile Avatar</label>
+        <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
+          {# Current photo preview #}
+          <div id="photoPreview" style="width:84px; height:84px; border-radius:50%; overflow:hidden;
+               border:3px solid var(--accent); flex-shrink:0; background:#0d1a26;
+               box-shadow:0 0 15px var(--glow); display:flex; align-items:center; justify-content:center;">
+            {% if student.profile_photo %}
+            <img id="previewImg" src="{{ student.profile_photo }}" alt="photo"
+                 style="width:100%; height:100%; object-fit:cover;">
+            {% else %}
+            <span id="initials" style="font-size:1.8rem; font-weight:800; color:var(--accent);">
+              {{ student.name[0].upper() }}
+            </span>
+            {% endif %}
+          </div>
+
+          <div style="flex:1; min-width:200px;">
+            <button type="button" class="btn btn-cyan btn-sm" style="margin-bottom:8px;"
+                    onclick="document.getElementById('photoInput').click()">
+              <i class="fa-solid fa-camera"></i> Change Photo
+            </button>
+            <input type="file" id="photoInput" name="profile_photo"
+                   accept=".jpg,.jpeg,.png,.gif,.webp" style="display:none"
+                   onchange="previewPhoto(this)">
+            <div id="photoName" style="font-size:.74rem; color:var(--text-dim); margin-bottom:4px;">No file selected</div>
+            <div style="color:var(--text-xs); font-size:.7rem;">Max 20 KB • JPG, PNG, GIF, WEBP</div>
+            <div id="photoSizeWarn" style="color:var(--red); font-size:.75rem; display:none; margin-top:5px;">
+              <i class="fa-solid fa-triangle-exclamation"></i> File exceeds 20 KB. Please compress your image.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# ── Contact Details ── #}
+      <div class="grid-2 mb-20">
+        <div class="f-group">
+          <label class="f-label"><i class="fa-solid fa-phone"></i> Personal Phone</label>
+          <input type="tel" class="f-control" name="phone"
+                 value="{{ student.phone or '' }}"
+                 placeholder="Enter your mobile number" maxlength="15">
+        </div>
+        <div class="f-group">
+          <label class="f-label"><i class="fa-solid fa-phone-slash"></i> Parent's Phone</label>
+          <input type="tel" class="f-control" name="parent_phone"
+                 value="{{ student.parent_phone or '' }}"
+                 placeholder="Emergency contact number" maxlength="15">
+        </div>
+      </div>
+
+      {# ── Academic Info (Grid) ── #}
+      <div style="padding:18px; background:rgba(0,0,0,.25); border-radius:12px; border:1px solid rgba(255,255,255,.05); margin-bottom:20px;">
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+          <div class="f-group" style="margin-bottom:0;">
+            <label class="f-label"><i class="fa-solid fa-layer-group"></i> Current Semester</label>
+            <select class="f-control" name="current_semester" style="cursor:pointer;">
+              {% for i in range(1, 9) %}
+              <option value="{{ i }}" {% if student.current_semester == i %}selected{% endif %}>Semester {{ i }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div class="f-group" style="margin-bottom:0;">
+            <label class="f-label"><i class="fa-solid fa-id-card"></i> Enrollment No</label>
+            <input type="text" class="f-control" value="{{ student.enrollment_no }}" disabled 
+                   style="background:rgba(255,255,255,.03); color:var(--text-dim); opacity:.7;">
+          </div>
+          <div class="f-group" style="margin-bottom:0;">
+            <label class="f-label"><i class="fa-solid fa-code-branch"></i> Branch</label>
+            <input type="text" class="f-control" value="{{ student.branch }}" disabled 
+                   style="background:rgba(255,255,255,.03); color:var(--text-dim); opacity:.7;">
+          </div>
+          <div class="f-group" style="margin-bottom:0;">
+            <label class="f-label"><i class="fa-solid fa-graduation-cap"></i> Programme</label>
+            <input type="text" class="f-control" value="{{ student.programme }}" disabled 
+                   style="background:rgba(255,255,255,.03); color:var(--text-dim); opacity:.7;">
+          </div>
+        </div>
+      </div>
+
+      {# ── Residential Address ── #}
+      <div class="f-group mb-20">
+        <label class="f-label"><i class="fa-solid fa-location-dot"></i> Residential Address</label>
+        <input type="text" class="f-control" name="address"
+               value="{{ student.address or '' }}"
+               placeholder="Flat, Street, Area, City..." maxlength="200">
+      </div>
+
+      {# ── Biography ── #}
+      <div class="f-group mb-24">
+        <label class="f-label"><i class="fa-solid fa-quote-left"></i> About Me</label>
+        <textarea class="f-control" name="bio" rows="4" maxlength="500"
+                  placeholder="Share a bit about your goals, interests, or achievements..."
+                  style="resize:vertical; min-height:100px;">{{ student.bio or '' }}</textarea>
+        <div style="text-align:right; font-size:.7rem; color:var(--text-xs); margin-top:6px;" id="bioCount">
+          {{ (student.bio or '')|length }} / 500 characters
+        </div>
+      </div>
+
+      {# ── Actions ── #}
+      <div style="display:flex; gap:12px; margin-top:8px; border-top:1px solid rgba(0,255,255,.1); padding-top:20px;">
+        <button type="submit" class="btn btn-primary">
+          <i class="fa-solid fa-floppy-disk"></i> Save Profile
+        </button>
+        <a href="{{ url_for('student.profile') }}" class="btn btn-outline">
+          Cancel
+        </a>
+      </div>
+    </form>
+
+    <div style="margin-top:20px; padding:12px; background:rgba(255,204,0,.05); border-radius:8px; font-size:.76rem; color:var(--text-dim); border-left:3px solid var(--yellow);">
+      <i class="fa-solid fa-circle-info" style="color:var(--yellow);"></i>
+      Only contact info, semester, address, and bio can be edited here. For other details, contact your college admin.
+    </div>
+  </div>
+</div>
+
+<script>
+// Bio character counter
+const bioEl = document.querySelector('textarea[name="bio"]');
+const bioCount = document.getElementById('bioCount');
+if (bioEl) {
+  bioEl.addEventListener('input', () => {
+    bioCount.textContent = `${bioEl.value.length} / 500 characters`;
+  });
+}
+
+// Photo preview + size check
+function previewPhoto(input) {
+  const warn = document.getElementById('photoSizeWarn');
+  const nameEl = document.getElementById('photoName');
+  warn.style.display = 'none';
+
+  if (!input.files || !input.files[0]) return;
+  const file = input.files[0];
+  nameEl.textContent = file.name;
+
+  if (file.size > 20 * 1024) {
+    warn.style.display = 'block';
+    input.value = '';  
+    nameEl.textContent = 'No file chosen';
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = e => {
+    const preview = document.getElementById('photoPreview');
+    preview.innerHTML = `<img src="${e.target.result}" alt="preview"
+      style="width:100%; height:100%; object-fit:cover;">`;
+  };
+  reader.readAsDataURL(file);
+}
+</script>
+{% endblock %}

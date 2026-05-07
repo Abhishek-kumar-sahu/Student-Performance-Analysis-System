@@ -1,0 +1,571 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <!-- Security: prevent caching of authenticated pages -->
+  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
+  <meta http-equiv="Pragma" content="no-cache" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <!-- CSRF token accessible to JavaScript for AJAX POST requests -->
+  <meta name="csrf-token" content="{{ csrf_token }}" />
+  <title>{% block title %}SPAS{% endblock %} — Student Performance Analysis System</title>
+  <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/SPAS_logo.png') }}?v=1.1" />
+  <link rel="stylesheet" href="{{ url_for('static',filename='css/spas.css') }}" />
+  <link rel="stylesheet" href="{{ url_for('static',filename='css/font-awesome.min.css') }}" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap"
+    rel="stylesheet" />
+</head>
+
+<body>
+
+  {% if current_user %}
+  {# ─── SIDEBAR ─────────────────────────────────────────────────── #}
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="brand-icon"><img src="{{ url_for('static', filename='images/SPAS_logo.png') }}" alt="SPAS Logo"></div>
+      <div>
+        <div class="brand-name">SPAS</div>
+        <div class="brand-sub">Performance Analysis System</div>
+      </div>
+    </div>
+
+    <div class="sidebar-user">
+      {% if current_user.profile_photo %}
+      <div class="su-avatar" style="padding:0;overflow:hidden;"><img src="{{ current_user.profile_photo }}"
+          style="width:100%;height:100%;object-fit:cover;border-radius:50%;"></div>
+      {% else %}
+      <div class="su-avatar">{{ (current_user.full_name or current_user.username)[0].upper() }}</div>
+      {% endif %}
+      <div>
+        <div class="su-name">{{ (current_user.full_name or current_user.username)|truncate(20,true,'…') }}</div>
+        <div class="su-role">{{ current_user.role.replace('_',' ').title() }}</div>
+      </div>
+    </div>
+
+    <nav class="sidebar-nav">
+      {% if current_user.role == 'super_admin' %}
+      <div class="nav-section"><i class="fa-solid fa-shield-halved"></i> Super Admin</div>
+      <a href="{{ url_for('super_admin.dashboard') }}"
+        class="nav-item {% if request.endpoint=='super_admin.dashboard' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span> Overview
+      </a>
+      <a href="{{ url_for('super_admin.create_college') }}"
+        class="nav-item {% if 'college' in (request.endpoint or '') %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-building-columns"></i></span> Colleges
+      </a>
+      <a href="{{ url_for('super_admin.registrations') }}"
+        class="nav-item {% if request.endpoint=='super_admin.registrations' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-id-card"></i></span> Registrations
+      </a>
+      <a href="{{ url_for('super_admin.audit_log') }}"
+        class="nav-item {% if request.endpoint=='super_admin.audit_log' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-clipboard-list"></i></span> Audit Log
+      </a>
+      <a href="{{ url_for('super_admin.create_admin') }}"
+        class="nav-item {% if 'admin_form' in (request.endpoint or '') %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-user-plus"></i></span> Add Admin
+      </a>
+      <a href="{{ url_for('analytics.multi_college') }}"
+        class="nav-item {% if request.endpoint=='analytics.multi_college' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-building-columns"></i></span> Compare Colleges
+      </a>
+
+      {% elif current_user.role == 'admin' %}
+      <div class="nav-section"><i class="fa-solid fa-building-user"></i> College Admin</div>
+      <a href="{{ url_for('admin.dashboard') }}"
+        class="nav-item {% if request.endpoint=='admin.dashboard' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-gauge-high"></i></span> Dashboard
+      </a>
+      <a href="{{ url_for('admin.teachers') }}"
+        class="nav-item {% if 'teacher' in (request.endpoint or '') %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-chalkboard-user"></i></span> Teachers
+      </a>
+      <a href="{{ url_for('admin.student_registrations') }}"
+        class="nav-item {% if 'student_reg' in (request.endpoint or '') %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-user-clock"></i></span> Student Requests
+      </a>
+      <a href="{{ url_for('upload.upload_page') }}"
+        class="nav-item {% if 'upload' in (request.endpoint or '') %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-cloud-arrow-up"></i></span> Upload Data
+      </a>
+      <div class="nav-section">AI Analytics</div>
+      <a href="{{ url_for('analytics.subject_difficulty') }}"
+        class="nav-item {% if 'subject_difficulty' in (request.endpoint or '') %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-book-open"></i></span> Subject Difficulty
+      </a>
+      <a href="{{ url_for('analytics.attendance_correlation') }}"
+        class="nav-item {% if 'attendance_correlation' in (request.endpoint or '') %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span> Attendance Impact
+      </a>
+      <a href="{{ url_for('analytics.ai_query') }}"
+        class="nav-item {% if 'ai_query' in (request.endpoint or '') %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-robot"></i></span> AI Query
+      </a>
+      <a href="{{ url_for('analytics.trends') }}"
+        class="nav-item {% if request.endpoint=='analytics.trends' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-arrow-trend-up"></i></span> Trend Tracker
+      </a>
+      <a href="{{ url_for('analytics.anomalies') }}"
+        class="nav-item {% if request.endpoint=='analytics.anomalies' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-triangle-exclamation"></i></span> Anomaly Alerts
+      </a>
+      <a href="{{ url_for('analytics.ai_report') }}"
+        class="nav-item {% if request.endpoint=='analytics.ai_report' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-file-waveform"></i></span> AI Report
+      </a>
+      <a href="{{ url_for('analytics.comparison') }}"
+        class="nav-item {% if request.endpoint=='analytics.comparison' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-code-compare"></i></span> Upload Comparison
+      </a>
+
+
+      {% elif current_user.role == 'teacher' %}
+      <div class="nav-section"><i class="fa-solid fa-person-chalkboard"></i> Teacher Panel</div>
+      <a href="{{ url_for('teacher.dashboard') }}"
+        class="nav-item {% if request.endpoint=='teacher.dashboard' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-chart-line"></i></span> Class Dashboard
+      </a>
+      <a href="{{ url_for('teacher.register_student') }}"
+        class="nav-item {% if request.endpoint=='teacher.register_student' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-pen-to-square"></i></span> Register Student
+      </a>
+      <a href="{{ url_for('teacher.student_registrations') }}"
+        class="nav-item {% if 'student_reg' in (request.endpoint or '') %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-user-clock"></i></span> Student Requests
+      </a>
+      <a href="{{ url_for('upload.upload_page') }}"
+        class="nav-item {% if 'upload' in (request.endpoint or '') %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-cloud-arrow-up"></i></span> Upload Data
+      </a>
+      <a href="{{ url_for('teacher.reports') }}"
+        class="nav-item {% if request.endpoint=='teacher.reports' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-file-invoice"></i></span> Reports Centre
+      </a>
+      <a href="{{ url_for('teacher.class_pdf') }}" class="nav-item">
+        <span class="nav-icon"><i class="fa-solid fa-file-pdf"></i></span> Quick Class PDF
+      </a>
+      <div class="nav-section">AI Analytics</div>
+      <a href="{{ url_for('analytics.subject_difficulty') }}"
+        class="nav-item {% if 'subject_difficulty' in (request.endpoint or '') %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-book-open"></i></span> Subject Difficulty
+      </a>
+      <a href="{{ url_for('analytics.attendance_correlation') }}"
+        class="nav-item {% if 'attendance_correlation' in (request.endpoint or '') %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-chart-column"></i></span> Attendance Impact
+      </a>
+      <a href="{{ url_for('analytics.ai_query') }}"
+        class="nav-item {% if 'ai_query' in (request.endpoint or '') %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-robot"></i></span> AI Query
+      </a>
+      <a href="{{ url_for('analytics.trends') }}"
+        class="nav-item {% if request.endpoint=='analytics.trends' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-arrow-trend-up"></i></span> Trend Tracker
+      </a>
+      <a href="{{ url_for('analytics.anomalies') }}"
+        class="nav-item {% if request.endpoint=='analytics.anomalies' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-triangle-exclamation"></i></span> Anomaly Alerts
+      </a>
+      <a href="{{ url_for('analytics.ai_report') }}"
+        class="nav-item {% if request.endpoint=='analytics.ai_report' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-file-waveform"></i></span> AI Report
+      </a>
+      <a href="{{ url_for('analytics.comparison') }}"
+        class="nav-item {% if request.endpoint=='analytics.comparison' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-code-compare"></i></span> Upload Comparison
+      </a>
+
+      {% elif current_user.role == 'student' %}
+      <div class="nav-section">🎓 My Academic Record</div>
+      <a href="{{ url_for('student.dashboard') }}"
+        class="nav-item {% if request.endpoint=='student.dashboard' %}active{% endif %}">
+        <span class="nav-icon">🏠</span> My Dashboard
+      </a>
+      <a href="{{ url_for('student.profile') }}"
+        class="nav-item {% if request.endpoint in ('student.profile','student.edit_profile') %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-user-gear"></i></span> My Profile
+      </a>
+      <a href="{{ url_for('student.notifications_page') }}"
+        class="nav-item {% if request.endpoint=='student.notifications_page' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-bell"></i></span> Notifications
+        {% if notif_count > 0 %}<span
+          style="margin-left:auto;background:var(--red);color:#fff;border-radius:10px;padding:1px 7px;font-size:.7rem;box-shadow:0 0 8px var(--red)">{{
+          notif_count }}</span>{% endif %}
+      </a>
+      <div class="nav-section">AI Features</div>
+      <a href="{{ url_for('student.analytics') }}"
+        class="nav-item {% if request.endpoint=='student.analytics' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-chart-pie"></i></span> Analytics
+      </a>
+      <a href="{{ url_for('student.ai_advisor') }}"
+        class="nav-item {% if request.endpoint=='student.ai_advisor' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-robot"></i></span> AI Advisor
+      </a>
+      <a href="{{ url_for('student.digital_twin') }}"
+        class="nav-item {% if request.endpoint=='student.digital_twin' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-microscope"></i></span> Digital Twin
+      </a>
+      <a href="{{ url_for('student.download_report') }}" class="nav-item">
+        <span class="nav-icon"><i class="fa-solid fa-file-pdf"></i></span> Download Report
+      </a>
+      {% endif %}
+
+      <div class="nav-section"><i class="fa-solid fa-user-gear"></i> Account</div>
+      {% if current_user.role == 'super_admin' %}
+      <a href="{{ url_for('super_admin.change_password') }}"
+        class="nav-item {% if request.endpoint=='super_admin.change_password' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-key"></i></span> Change Password
+      </a>
+      {% elif current_user.role == 'admin' %}
+      <a href="{{ url_for('admin.edit_profile') }}"
+        class="nav-item {% if request.endpoint=='admin.edit_profile' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-user-gear"></i></span> My Profile
+      </a>
+      <a href="{{ url_for('admin.change_password') }}"
+        class="nav-item {% if request.endpoint=='admin.change_password' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-key"></i></span> Change Password
+      </a>
+      {% elif current_user.role == 'teacher' %}
+      <a href="{{ url_for('teacher.edit_profile') }}"
+        class="nav-item {% if request.endpoint=='teacher.edit_profile' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-user-gear"></i></span> My Profile
+      </a>
+      <a href="{{ url_for('teacher.change_password') }}"
+        class="nav-item {% if request.endpoint=='teacher.change_password' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-key"></i></span> Change Password
+      </a>
+      {% elif current_user.role == 'student' %}
+      <a href="{{ url_for('student.change_password') }}"
+        class="nav-item {% if request.endpoint=='student.change_password' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-key"></i></span> Change Password
+      </a>
+      {% endif %}
+    </nav>
+
+    <div class="sidebar-footer">
+      <form method="POST" action="{{ url_for('auth.logout') }}" style="margin:0;padding:0;">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="nav-item logout"
+          style="background:none;border:none;width:100%;text-align:left;cursor:pointer;">
+          <span class="nav-icon"><i class="fa-solid fa-right-from-bracket"></i></span> Sign Out
+        </button>
+      </form>
+      <div class="sf-ver">SPAS v5.0 · AI Powered</div>
+    </div>
+  </aside>
+
+  {# ─── MAIN AREA ────────────────────────────────────────────────── #}
+  <div class="main-wrap">
+    <header class="topbar">
+      <button class="sidebar-toggle" onclick="toggleSidebar()"><i class="fa-solid fa-bars"></i></button>
+      <div class="topbar-title">{% block page_title %}SPAS{% endblock %}</div>
+      <div class="topbar-right">
+        <span class="role-pill">{{ current_user.role.replace('_',' ').title() }}</span>
+        <div class="notif-bell" id="notifBell" onclick="toggleNotifPanel()" title="Notifications">
+          🔔
+          <span class="notif-badge" id="notifBadge" {% if notif_count> 0 %}style="display:flex"{% else
+            %}style="display:none"{% endif %}>{{ notif_count }}</span>
+        </div>
+        <div class="notif-panel" id="notifPanel" style="display:none">
+          <div class="notif-panel-hdr">
+            <span>Notifications</span>
+            <div style="display:flex;gap:8px;">
+              <button onclick="markAllRead()" class="notif-btn">✅ All Read</button>
+              <button onclick="clearRead()" class="notif-btn">🗑️ Clear</button>
+            </div>
+          </div>
+          <div id="notifList">
+            <div class="notif-empty">No notifications</div>
+          </div>
+        </div>
+        {% if current_user.profile_photo %}
+        <div class="topbar-avatar" style="padding:0;overflow:hidden;"><img src="{{ current_user.profile_photo }}"
+            style="width:100%;height:100%;object-fit:cover;border-radius:50%;"></div>
+        {% else %}
+        <div class="topbar-avatar">{{ (current_user.full_name or current_user.username)[0].upper() }}</div>
+        {% endif %}
+      </div>
+    </header>
+
+    <div class="toast-stack" id="toastStack"></div>
+
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% if msgs %}
+    <script id="flashData" type="application/json">{{ msgs | tojson }}</script>
+    {% endif %}
+    {% endwith %}
+
+    <main class="page-body">
+      {% block content %}{% endblock %}
+    </main>
+  </div>
+
+  {% else %}
+  {% block full_page %}{% endblock %}
+  {% endif %}
+
+  {# ── Confirm Modal ── #}
+  <div id="spasModal" class="spas-modal-overlay" style="display:none;" aria-modal="true" role="dialog">
+    <div class="spas-modal-box" id="spasModalBox">
+      <div class="spas-modal-icon" id="spasModalIcon"><i class="fa-solid fa-circle-exclamation"></i></div>
+      <div class="spas-modal-title" id="spasModalTitle">Confirm Action</div>
+      <div class="spas-modal-msg" id="spasModalMsg"></div>
+      <div class="spas-modal-actions">
+        <button class="btn-danger-spas ripple-btn" id="spasModalConfirm">Confirm</button>
+        <button class="btn-ghost ripple-btn" id="spasModalCancel" onclick="spasModalClose()">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ══ Sidebar toggle (mobile) ═══════════════════════════════ */
+    function toggleSidebar() {
+      const sb = document.getElementById('sidebar');
+      sb.classList.toggle('open');
+    }
+    document.addEventListener('click', e => {
+      const sb = document.getElementById('sidebar');
+      const toggle = document.querySelector('.sidebar-toggle');
+      if (sb && sb.classList.contains('open') && !sb.contains(e.target) && toggle && !toggle.contains(e.target)) {
+        sb.classList.remove('open');
+      }
+    });
+
+    /* ══ Toast ═══════════════════════════════════════════════════════ */
+    const TOAST_CFG = {
+      success: { icon: '<i class="fa-solid fa-circle-check"></i>', label: 'Success', cls: 'toast-success' },
+      danger: { icon: '<i class="fa-solid fa-circle-xmark"></i>', label: 'Error', cls: 'toast-danger' },
+      warning: { icon: '<i class="fa-solid fa-triangle-exclamation"></i>', label: 'Warning', cls: 'toast-warning' },
+      info: { icon: '<i class="fa-solid fa-circle-info"></i>', label: 'Info', cls: 'toast-info' },
+    };
+    function showToast(msg, cat = 'info', duration = 5000) {
+      const stack = document.getElementById('toastStack');
+      const cfg = TOAST_CFG[cat] || TOAST_CFG.info;
+      const el = document.createElement('div');
+      el.className = `toast ${cfg.cls}`;
+      el.innerHTML = `<div class="toast-icon">${cfg.icon}</div><div class="toast-body"><div class="toast-label">${cfg.label}</div><div class="toast-msg">${msg}</div></div><button class="toast-close" onclick="dismissToast(this.closest('.toast'))">✕</button><div class="toast-progress"><div class="toast-progress-bar" style="animation-duration:${duration}ms"></div></div>`;
+      stack.appendChild(el);
+      requestAnimationFrame(() => el.classList.add('toast-in'));
+      setTimeout(() => dismissToast(el), duration);
+    }
+    function dismissToast(el) {
+      if (!el || el.classList.contains('toast-out')) return;
+      el.classList.remove('toast-in'); el.classList.add('toast-out');
+      setTimeout(() => el.remove(), 400);
+    }
+    (function () {
+      const el = document.getElementById('flashData');
+      if (!el) return;
+      try { JSON.parse(el.textContent).forEach(([cat, msg], i) => setTimeout(() => showToast(msg, cat), i * 150)); } catch (e) { }
+    })();
+
+    /* ══ Confirm Modal ═══════════════════════════════════════════════ */
+    let _spasCallback = null;
+    function spasConfirm(msg, onConfirm, opts = {}) {
+      _spasCallback = onConfirm;
+      document.getElementById('spasModalMsg').innerHTML = msg;
+      document.getElementById('spasModalTitle').textContent = opts.title || 'Confirm Action';
+      document.getElementById('spasModalIcon').innerHTML = opts.icon || '<i class="fa-solid fa-circle-exclamation"></i>';
+      const btn = document.getElementById('spasModalConfirm');
+      btn.textContent = opts.confirmText || 'Confirm';
+      btn.className = (opts.danger !== false ? 'btn-danger-spas' : 'btn-primary-spas') + ' ripple-btn';
+      const modal = document.getElementById('spasModal');
+      modal.style.display = 'flex';
+      requestAnimationFrame(() => modal.classList.add('modal-open'));
+      btn.focus();
+    }
+    function spasModalClose() {
+      const modal = document.getElementById('spasModal');
+      modal.classList.remove('modal-open');
+      setTimeout(() => { modal.style.display = 'none'; _spasCallback = null; }, 280);
+    }
+    document.getElementById('spasModalConfirm').addEventListener('click', () => {
+      if (_spasCallback) _spasCallback(); spasModalClose();
+    });
+    document.getElementById('spasModal').addEventListener('click', e => {
+      if (e.target === e.currentTarget) spasModalClose();
+    });
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && document.getElementById('spasModal').style.display !== 'none') spasModalClose();
+    });
+
+    /* ══ Ripple ═══════════════════════════════════════════════════════ */
+    document.addEventListener('click', e => {
+      const btn = e.target.closest('.ripple-btn');
+      if (!btn) return;
+      const r = document.createElement('span');
+      const rect = btn.getBoundingClientRect();
+      const sz = Math.max(btn.offsetWidth, btn.offsetHeight) * 2;
+      r.className = 'ripple-wave';
+      r.style.cssText = `width:${sz}px;height:${sz}px;left:${e.clientX - rect.left - sz / 2}px;top:${e.clientY - rect.top - sz / 2}px`;
+      btn.appendChild(r);
+      r.addEventListener('animationend', () => r.remove());
+    });
+
+    /* ══ Count-up ═════════════════════════════════════════════════════ */
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('[data-count]').forEach(el => {
+        const target = parseFloat(el.dataset.count);
+        if (isNaN(target)) return;
+        const isFloat = !Number.isInteger(target);
+        // BUG-14 FIX: The original used Math.min(cur+inc, target) which jumps
+        // instantly to the final value when target is negative (inc is also
+        // negative, Math.min selects the most-negative value on frame 1).
+        // Fix: use direction-aware stepping that works for both + and - targets.
+        const steps = 50;
+        const inc = (target) / steps;   // positive for +target, negative for -target
+        let cur = 0;
+        const t = setInterval(() => {
+          cur += inc;
+          const done = inc >= 0 ? (cur >= target) : (cur <= target);
+          if (done) { cur = target; clearInterval(t); }
+          el.textContent = isFloat ? cur.toFixed(2) : Math.round(cur);
+        }, 16);
+      });
+    });
+
+    /* ══ Progress fills ═══════════════════════════════════════════════ */
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.progress-fill[data-width],.ml-fill[data-width]').forEach(el => {
+        setTimeout(() => el.style.width = el.dataset.width, 120);
+      });
+    });
+
+    /* ══ Table filter ═════════════════════════════════════════════════ */
+    function filterTable(inp, tableId) {
+      const q = inp.value.toLowerCase();
+      document.querySelectorAll(`#${tableId} tbody tr:not(.sem-detail-row)`).forEach(r => {
+        r.style.display = r.textContent.toLowerCase().includes(q) ? '' : 'none';
+      });
+    }
+
+    /* ══ Bulk select ══════════════════════════════════════════════════ */
+    document.addEventListener('DOMContentLoaded', () => {
+      const selectAll = document.getElementById('selectAll');
+      if (!selectAll) return;
+      const update = () => {
+        const checked = [...document.querySelectorAll('.row-check:checked')];
+        const bar = document.getElementById('bulkBar');
+        if (bar) bar.classList.toggle('visible', checked.length > 0);
+        const cnt = document.getElementById('bulkCount');
+        if (cnt) cnt.textContent = `${checked.length} selected`;
+        const ids = document.getElementById('bulkIds');
+        if (ids) ids.value = checked.map(c => c.value).join(',');
+      };
+      selectAll.addEventListener('change', () => {
+        document.querySelectorAll('.row-check').forEach(c => c.checked = selectAll.checked); update();
+      });
+      document.addEventListener('change', e => {
+        if (e.target.classList.contains('row-check')) update();
+      });
+    });
+
+    /* ══ Password toggle ══════════════════════════════════════════════ */
+    function togglePwdField(id, btn) {
+      const f = document.getElementById(id);
+      if (!f) return;
+      f.type = f.type === 'password' ? 'text' : 'password';
+      btn.innerHTML = f.type === 'password' ? '<i class="fa-solid fa-eye"></i>' : '<i class="fa-solid fa-eye-slash"></i>';
+    }
+
+    /* ══ Sem rows ═════════════════════════════════════════════════════ */
+    function toggleSemDetails(id) {
+      const row = document.getElementById(id);
+      if (row) row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
+    }
+
+    /* ══ Reset modal ══════════════════════════════════════════════════ */
+    function openResetModal(userId, userName, formAction) {
+      const overlay = document.getElementById('resetModal');
+      if (!overlay) return;
+      overlay.style.display = 'flex';
+      requestAnimationFrame(() => overlay.classList.add('modal-open'));
+      const titleEl = document.getElementById('resetModalTitle');
+      const formEl = document.getElementById('resetForm');
+      const pwdEl = document.getElementById('newPwdInput');
+      if (titleEl) titleEl.textContent = `Reset Password — ${userName}`;
+      if (formEl) formEl.action = formAction;
+      if (pwdEl) { pwdEl.value = ''; setTimeout(() => pwdEl.focus(), 100); }
+    }
+    function closeResetModal() {
+      const overlay = document.getElementById('resetModal');
+      if (!overlay) return;
+      overlay.classList.remove('modal-open');
+      setTimeout(() => overlay.style.display = 'none', 280);
+    }
+    document.addEventListener('click', e => {
+      if (e.target && e.target.id === 'resetModal') closeResetModal();
+    });
+
+    /* ══ Notifications ════════════════════════════════════════════════ */
+    const notifIcons = { info: '<i class="fa-solid fa-circle-info"></i>', warning: '<i class="fa-solid fa-triangle-exclamation"></i>', danger: '<i class="fa-solid fa-radiation"></i>', success: '<i class="fa-solid fa-circle-check"></i>' };
+    function getCsrfToken() { return document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''; }
+    function escHtml(s) {
+      if (s === null || s === undefined) return '';
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+    async function loadNotifications() {
+      try {
+        const r = await fetch('/notifications/list');
+        const items = await r.json();
+        const badge = document.getElementById('notifBadge');
+        const list = document.getElementById('notifList');
+        if (!list) return;
+        const unread = items.filter(n => !n.is_read).length;
+        if (badge) { badge.textContent = unread; badge.style.display = unread > 0 ? 'flex' : 'none'; }
+        if (!items.length) { list.innerHTML = '<div class="notif-empty">No notifications</div>'; return; }
+        list.innerHTML = items.map(n => `
+      <div class="notif-item ${n.is_read ? 'read' : 'unread'}" onclick="readNotif(${n.id},'${n.link || ''}')">
+        <div class="notif-icon notif-${n.type || 'info'}">${notifIcons[n.type] || '🔔'}</div>
+        <div class="notif-body">
+          <div class="notif-title">${n.title}</div>
+          <div class="notif-msg">${n.message}</div>
+          <div class="notif-time">${timeAgo(n.created_at)}</div>
+        </div>
+      </div>`).join('');
+      } catch (e) { }
+    }
+    async function readNotif(id, link) {
+      await fetch(`/notifications/mark-read/${id}`, { method: 'POST', headers: { 'X-CSRF-Token': getCsrfToken() } });
+      loadNotifications();
+      if (link && link.startsWith('/')) window.location.href = link;
+    }
+    async function markAllRead() { await fetch('/notifications/mark-all-read', { method: 'POST', headers: { 'X-CSRF-Token': getCsrfToken() } }); loadNotifications(); }
+    async function clearRead() { await fetch('/notifications/clear', { method: 'POST', headers: { 'X-CSRF-Token': getCsrfToken() } }); loadNotifications(); }
+    function toggleNotifPanel() {
+      const p = document.getElementById('notifPanel');
+      if (!p) return;
+      const open = p.style.display !== 'none';
+      p.style.display = open ? 'none' : 'block';
+      if (!open) loadNotifications();
+    }
+    document.addEventListener('click', e => {
+      const bell = document.getElementById('notifBell');
+      const panel = document.getElementById('notifPanel');
+      if (panel && bell && !bell.contains(e.target) && !panel.contains(e.target)) panel.style.display = 'none';
+    });
+    function timeAgo(ts) {
+      if (!ts) return '';
+      const diff = Math.floor((Date.now() - new Date(ts + 'Z').getTime()) / 1000);
+      if (diff < 60) return `${diff}s ago`;
+      if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+      if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+      return `${Math.floor(diff / 86400)}d ago`;
+    }
+    loadNotifications();
+    setInterval(async () => {
+      try {
+        const r = await fetch('/notifications/unread-count');
+        const d = await r.json();
+        const b = document.getElementById('notifBadge');
+        if (b) { b.textContent = d.count; b.style.display = d.count > 0 ? 'flex' : 'none'; }
+      } catch (e) { }
+    }, 60000);
+  </script>
+  {% block scripts %}{% endblock %}
+</body>
+
+</html>

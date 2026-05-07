@@ -1,0 +1,163 @@
+{% extends 'base.html' %}
+{% block title %}Academic Trend Tracking{% endblock %}
+{% block page_title %}// 📉 Long-Term Trend Tracker{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Academic Trend Tracker</h1>
+    <p>Track CGPA, attendance, and pass rates across all semesters.</p>
+  </div>
+</div>
+
+<div class="card mb-20" style="padding:12px 20px; border-color:rgba(0,204,204,.2); background:rgba(0,204,204,.02);">
+  <form id="filterForm" method="GET" action="{{ url_for('analytics.trends') }}" style="display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span class="text-dim text-sm" style="font-weight:600; color:var(--accent);"><i class="fa-solid fa-filter"></i> FILTERS:</span>
+    </div>
+    
+    <div style="display:flex; align-items:center; gap:10px;">
+      <label class="text-xs text-dim" style="text-transform:uppercase; letter-spacing:1px;">Branch</label>
+      <select name="branch" class="f-control f-control-sm" style="width:180px;" onchange="this.form.submit()">
+        <option value="">All Branches</option>
+        {% for b in branches %}<option value="{{ b.branch_code }}" {% if branch_filter==b.branch_code %}selected{% endif %}>{{ b.branch }}</option>{% endfor %}
+      </select>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:10px;">
+      <label class="text-xs text-dim" style="text-transform:uppercase; letter-spacing:1px;">Semester</label>
+      <select name="semester" class="f-control f-control-sm" style="width:140px;" onchange="this.form.submit()">
+        <option value="">All Semesters</option>
+        {% for s in sems %}<option value="{{ s }}" {% if sem_filter|string == s|string %}selected{% endif %}>Semester {{ s }}</option>{% endfor %}
+      </select>
+    </div>
+
+    {% if branch_filter or sem_filter %}
+    <a href="{{ url_for('analytics.trends') }}" class="btn btn-outline btn-sm" style="color:var(--red); border-color:rgba(239,68,68,.3); padding:4px 12px;">
+      <i class="fa-solid fa-filter-circle-xmark"></i> Reset
+    </a>
+    {% endif %}
+  </form>
+</div>
+
+{% if trend_data %}
+{# AI Trend Analysis #}
+{% if ai_trend %}
+<div class="card mb-20" style="border-color:rgba(0,210,180,.25);">
+  <div class="card-hdr"><div class="card-title"><div class="card-title-icon" style="background:rgba(0,210,180,.1);color:#00d2b4;">🤖</div>AI Trend Analysis</div></div>
+  <div style="padding:18px 20px;">
+    <div style="display:flex;gap:12px;align-items:center;margin-bottom:14px;">
+      {% set traj_icons  = {'improving':'📈','stable':'➡️','declining':'📉','mixed':'↕️'} %}
+      <div class="card-title-icon traj-{{ ai_trend.overall_trajectory|default('stable') }}" style="font-size:1.2rem;">
+        {{ traj_icons.get(ai_trend.overall_trajectory,'📊') }}
+      </div>
+      <div>
+        <div style="font-size:.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em;">Overall Trajectory</div>
+        <div class="traj-{{ ai_trend.overall_trajectory|default('stable') }}" style="font-weight:700;font-size:1.05rem;background:transparent!important;padding:0;">
+          {{ ai_trend.overall_trajectory|title }}
+        </div>
+      </div>
+    </div>
+    <p style="color:var(--text);line-height:1.75;margin-bottom:14px;">{{ ai_trend.trajectory_message }}</p>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div>
+        <div style="font-size:.7rem;color:var(--text-dim);text-transform:uppercase;margin-bottom:8px;">Key Observations</div>
+        {% for o in ai_trend.key_observations %}<div style="display:flex;gap:8px;margin-bottom:5px;"><span style="color:#00d2b4;flex-shrink:0;">•</span><span style="font-size:.82rem;">{{ o }}</span></div>{% endfor %}
+      </div>
+      <div>
+        <div style="font-size:.7rem;color:var(--text-dim);text-transform:uppercase;margin-bottom:8px;">Recommendations</div>
+        {% for r in ai_trend.recommendations %}<div style="display:flex;gap:8px;margin-bottom:5px;"><span style="color:#00d2b4;flex-shrink:0;">→</span><span style="font-size:.82rem;">{{ r }}</span></div>{% endfor %}
+        {% if ai_trend.forecast %}
+        <div style="margin-top:10px;background:rgba(88,166,255,.06);border:1px solid rgba(88,166,255,.15);border-radius:8px;padding:10px 12px;font-size:.8rem;color:#58a6ff;">🔭 {{ ai_trend.forecast }}</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# Summary cards #}
+<div class="stats-row mb-20">
+  {% set first = trend_data[0] %}
+  {% set last  = trend_data[-1] %}
+  <div class="stat-card sc-blue"><div class="s-icon">📚</div><div class="s-label">Semesters Tracked</div><div class="s-val" data-count="{{ trend_data|length }}">{{ trend_data|length }}</div></div>
+  <div class="stat-card sc-cyan"><div class="s-icon">🎯</div><div class="s-label">Latest Avg CGPA</div><div class="s-val">{{ "%.2f"|format(last.avg_cgpa) }}</div></div>
+  <div class="stat-card sc-green"><div class="s-icon">✅</div><div class="s-label">Latest Pass Rate</div><div class="s-val">{{ "%.1f"|format(last.pass_rate) }}%</div></div>
+  <div class="stat-card sc-purple"><div class="s-icon">📅</div><div class="s-label">Latest Avg Attendance</div><div class="s-val">{{ "%.1f"|format(last.avg_att) }}%</div></div>
+</div>
+
+{# Charts #}
+<div class="card mb-20">
+  <div class="card-hdr"><div class="card-title">📊 CGPA & Attendance Trend</div></div>
+  <div class="chart-wrap" style="height:280px;"><canvas id="trendChart"></canvas></div>
+</div>
+<div class="grid-2 mb-20">
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">✅ Pass Rate Trend</div></div>
+    <div class="chart-wrap"><canvas id="passChart"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">📋 Semester Data Table</div></div>
+    <div class="table-wrap">
+    <table class="spas-table">
+      <thead><tr><th>Sem</th><th>Students</th><th>Avg CGPA</th><th>Avg SGPA</th><th>Attendance</th><th>Pass Rate</th><th>Backlogs</th></tr></thead>
+      <tbody>
+      {% for t in trend_data %}
+      {% set cgpa_prev = trend_data[loop.index0-1].avg_cgpa if loop.index0 > 0 else t.avg_cgpa %}
+      <tr>
+        <td><strong class="mono">Sem {{ t.semester_no }}</strong></td>
+        <td class="mono text-sm">{{ t.students }}</td>
+        <td>
+          <span class="mono fw700 {% if t.avg_cgpa>=8 %}text-green{% elif t.avg_cgpa>=6 %}text-blue{% elif t.avg_cgpa>=5 %}text-yellow{% else %}text-red{% endif %}">{{ "%.2f"|format(t.avg_cgpa) }}</span>
+          {% if loop.index0 > 0 %}
+            {% set diff = t.avg_cgpa - cgpa_prev %}
+            <span class="mono text-xs {% if diff>0 %}text-green{% elif diff<0 %}text-red{% else %}text-dim{% endif %}">{{ '%+.2f'|format(diff) }}</span>
+          {% endif %}
+        </td>
+        <td class="mono text-sm">{{ "%.2f"|format(t.avg_sgpa) }}</td>
+        <td class="mono text-sm {% if t.avg_att<60 %}text-red{% elif t.avg_att<75 %}text-yellow{% else %}text-green{% endif %}">{{ "%.1f"|format(t.avg_att) }}%</td>
+        <td><span class="badge {% if t.pass_rate>=80 %}badge-green{% elif t.pass_rate>=60 %}badge-yellow{% else %}badge-red{% endif %}">{{ "%.1f"|format(t.pass_rate) }}%</span></td>
+        <td class="mono text-sm {% if t.avg_backlogs>0.5 %}text-red{% else %}text-dim{% endif %}">{{ '%.1f'|format(t.avg_backlogs) }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    </div>
+  </div>
+</div>
+{% else %}
+<div class="empty-state"><div class="empty-state-icon">📉</div><h3>No trend data</h3><p>Upload results for multiple semesters to see trend analysis.</p></div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+{% if trend_data %}
+<div id="chart-data-store" data-trends='{{ trend_data|tojson|safe }}' style="display:none;"></div>
+<script>
+Chart.defaults.color = '#8b949e';
+Chart.defaults.font.family = "'JetBrains Mono', monospace";
+Chart.defaults.font.size = 11;
+const td = JSON.parse(document.getElementById('chart-data-store').dataset.trends);
+if(td && td.length > 0){
+  const labels = td.map(t=>'Sem '+t.semester_no);
+  new Chart(document.getElementById('trendChart'),{
+    type:'line',
+    data:{labels,datasets:[
+      {label:'Avg CGPA',data:td.map(t=>parseFloat(t.avg_cgpa)||0),borderColor:'#00d2b4',backgroundColor:'rgba(0,210,180,.08)',borderWidth:2.5,pointRadius:5,pointHoverRadius:7,fill:true,tension:.35,yAxisID:'y'},
+      {label:'Avg Attendance %',data:td.map(t=>parseFloat(t.avg_att)||0),borderColor:'#58a6ff',backgroundColor:'rgba(88,166,255,.06)',borderWidth:2,pointRadius:4,fill:true,tension:.35,yAxisID:'y1'},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{color:'#8b949e'}}},
+      scales:{y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b949e'},min:0,max:10,title:{display:true,text:'CGPA',color:'#8b949e'}},
+        y1:{position:'right',grid:{display:false},ticks:{color:'#8b949e'},min:0,max:100,title:{display:true,text:'Attendance %',color:'#8b949e'}},
+        x:{grid:{display:false},ticks:{color:'#8b949e'}}}}
+  });
+  new Chart(document.getElementById('passChart'),{
+    type:'line',
+    data:{labels,datasets:[{label:'Pass Rate %',data:td.map(t=>parseFloat(t.pass_rate)||0),borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,.08)',borderWidth:2.5,pointRadius:5,fill:true,tension:.35}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b949e',callback:v=>v+'%'},min:0,max:100},x:{grid:{display:false},ticks:{color:'#8b949e'}}}}
+  });
+}
+</script>
+{% endif %}
+{% endblock %}

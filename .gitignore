@@ -1,0 +1,51 @@
+# ── SPAS .gitignore ───────────────────────────────────────────────────
+# CRITICAL: instance/ contains the live database and auto-generated super-admin
+# credentials. These must NEVER be committed to version control.
+
+# Database and credentials
+instance/
+*.db
+*.sqlite
+*.sqlite3
+
+# Environment variables — contains SECRET_KEY, SMTP passwords, API keys
+.env
+.env.*
+!.env.example
+
+# Python cache
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environments
+venv/
+env/
+.venv/
+ENV/
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+*.egg
+
+# OS artefacts
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log
+logs/
+
+# Uploads (user data should not be in version control)
+uploads/

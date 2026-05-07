@@ -1,0 +1,364 @@
+{% extends 'base.html' %}
+{% block title %}AI Report Generator{% endblock %}
+{% block page_title %}// 📄 AI Report Generator{% endblock %}
+{% block content %}
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>AI Report Generator</h1>
+    <p>AI-powered academic reports — department overview, at-risk analysis, and topper insights.</p>
+  </div>
+</div>
+
+{# ── Controls ───────────────────────────────────────────────────────── #}
+<div class="card mb-20" style="padding:12px 20px; border-color:rgba(0,204,204,.2); background:rgba(0,204,204,.02);">
+  <form id="filterForm" method="GET" action="{{ url_for('analytics.ai_report') }}" style="display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span class="text-dim text-sm" style="font-weight:600; color:var(--accent);"><i class="fa-solid fa-filter"></i> FILTERS:</span>
+    </div>
+    
+    <div style="display:flex; align-items:center; gap:10px;">
+      <label class="text-xs text-dim" style="text-transform:uppercase; letter-spacing:1px;">Report Type</label>
+      <select name="type" class="f-control f-control-sm" style="width:160px;">
+        <option value="department" {% if report_type=='department' %}selected{% endif %}>📊 Department</option>
+        <option value="college"    {% if report_type=='college'    %}selected{% endif %}>🏛️ College</option>
+        <option value="at_risk"    {% if report_type=='at_risk'    %}selected{% endif %}>⚠️ At-Risk</option>
+        <option value="toppers"    {% if report_type=='toppers'    %}selected{% endif %}>🏆 Toppers</option>
+      </select>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:10px;">
+      <label class="text-xs text-dim" style="text-transform:uppercase; letter-spacing:1px;">Branch</label>
+      <select name="branch" class="f-control f-control-sm" style="width:180px;">
+        <option value="">All Branches</option>
+        {% for b in branches %}<option value="{{ b.branch_code }}" {% if branch_filter==b.branch_code %}selected{% endif %}>{{ b.branch }}</option>{% endfor %}
+      </select>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:10px;">
+      <label class="text-xs text-dim" style="text-transform:uppercase; letter-spacing:1px;">Semester</label>
+      <select name="semester" class="f-control f-control-sm" style="width:140px;">
+        <option value="">All Semesters</option>
+        {% for s in sems %}<option value="{{ s }}" {% if sem_filter|string == s|string %}selected{% endif %}>Semester {{ s }}</option>{% endfor %}
+      </select>
+    </div>
+
+    <button type="submit" class="btn btn-primary btn-sm ripple-btn" style="padding:4px 16px;">🤖 Generate</button>
+    
+    {% if report %}
+    <button type="button" onclick="window.print()" class="btn btn-outline btn-sm" style="padding:4px 12px;"><i class="fa-solid fa-print"></i></button>
+    {% endif %}
+  </form>
+</div>
+
+{% if not report %}
+<div class="empty-state" style="padding:64px 32px;">
+  <div class="empty-state-icon">📄</div>
+  <h3>Generate Your First AI Report</h3>
+  <p>Select a report type and optionally filter by branch, then click <strong>Generate Report</strong>.</p>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;max-width:740px;margin:24px auto 0;">
+    {% for t,icon,desc in [('department','📊','Subject & branch insights'),('college','🏛️','Full institution overview'),('at_risk','⚠️','Who needs intervention'),('toppers','🏆','Top performer analysis')] %}
+    <a href="?type={{ t }}" style="display:block;padding:18px;border:1px solid var(--border);border-radius:10px;text-decoration:none;background:var(--card);transition:border-color .2s;" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
+      <div style="font-size:1.6rem;margin-bottom:6px;">{{ icon }}</div>
+      <div style="font-size:.82rem;font-weight:700;color:var(--text);">{{ t.replace('_',' ').title() }}</div>
+      <div style="font-size:.72rem;color:var(--text-dim);margin-top:3px;">{{ desc }}</div>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+{% else %}
+{% set cd = report.get('_chart_data', {}) %}
+{% set rating_colors = {'Excellent':'#22c55e','Good':'#58a6ff','Average':'#eab308','Poor':'#f97316','Critical':'#ef4444'} %}
+{% set rc = rating_colors.get(report.performance_rating, '#8b949e') %}
+
+{# ── Rating Banner ────────────────────────────────────────────────── #}
+<div style="background:{{ rc }}10;border:1px solid {{ rc }}30;border-radius:14px;padding:20px 26px;margin-bottom:20px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+  <div style="font-size:2.8rem;">{% if report.performance_rating=='Excellent' %}🏆{% elif report.performance_rating=='Good' %}✅{% elif report.performance_rating=='Average' %}📊{% elif report.performance_rating=='Poor' %}⚠️{% else %}🚨{% endif %}</div>
+  <div style="flex:1;min-width:200px;">
+    <div style="font-size:.68rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.12em;margin-bottom:3px;">{{ report.title }}</div>
+    <div style="font-size:1.15rem;font-weight:800;color:{{ rc }};">{{ report.performance_rating }} Performance</div>
+    <div style="font-size:.78rem;color:var(--text-dim);margin-top:3px;">Generated {{ report.generated_at }}</div>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;">
+    {% for label,val,color in [('Avg CGPA', report.key_metrics.avg_cgpa, '#00d2b4'),('Avg Att', (report.key_metrics.avg_attendance|string)+'%', '#58a6ff'),('Pass Rate', (report.key_metrics.pass_rate|string)+'%', '#22c55e'),('At Risk', (report.key_metrics.at_risk_pct|string)+'%', '#ef4444')] %}
+    <div style="text-align:center;padding:10px 16px;background:rgba(255,255,255,.04);border-radius:10px;min-width:72px;">
+      <div style="font-size:1.25rem;font-weight:800;color:{{ color }};">{{ val }}</div>
+      <div style="font-size:.62rem;color:var(--text-dim);margin-top:2px;">{{ label }}</div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+
+{# ── Charts Row 1 ─────────────────────────────────────────────────── #}
+{% if cd %}
+<div class="grid-2 mb-20">
+  <div class="card">
+    <div class="card-hdr" style="margin-bottom:14px;"><div class="card-title"><div class="card-title-icon" style="background:rgba(0,210,180,.1);color:var(--accent);">📊</div>Pass / Fail / At-Risk</div></div>
+    <div class="chart-wrap" style="height:240px;"><canvas id="pfChart"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-hdr" style="margin-bottom:14px;"><div class="card-title"><div class="card-title-icon" style="background:rgba(88,166,255,.1);color:var(--blue);">🏫</div>Branch-wise Avg CGPA</div></div>
+    <div class="chart-wrap" style="height:240px;"><canvas id="branchChart"></canvas></div>
+  </div>
+</div>
+
+{# ── Charts Row 2 ─────────────────────────────────────────────────── #}
+{% if cd.top10 %}
+<div class="grid-2 mb-20">
+  <div class="card">
+    <div class="card-hdr" style="margin-bottom:14px;"><div class="card-title"><div class="card-title-icon" style="background:rgba(34,197,94,.1);color:var(--green);">🏆</div>Top 10 Performers</div></div>
+    <div class="chart-wrap" style="height:280px;"><canvas id="topChart"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-hdr" style="margin-bottom:14px;"><div class="card-title"><div class="card-title-icon" style="background:rgba(239,68,68,.1);color:var(--red);">⚠️</div>Bottom 10 — Need Support</div></div>
+    <div class="chart-wrap" style="height:280px;"><canvas id="bottomChart"></canvas></div>
+  </div>
+</div>
+{% endif %}
+
+<div class="card mb-20">
+  <div class="card-hdr" style="margin-bottom:14px;"><div class="card-title"><div class="card-title-icon" style="background:rgba(234,179,8,.1);color:#eab308;">📅</div>Branch-wise Attendance & Pass Rate</div></div>
+  <div class="chart-wrap" style="height:220px;"><canvas id="branchAttChart"></canvas></div>
+</div>
+{% endif %}
+
+{# ── Executive Summary ─────────────────────────────────────────────── #}
+<div class="card mb-20">
+  <div class="card-hdr" style="margin-bottom:14px;"><div class="card-title"><div class="card-title-icon" style="background:rgba(0,210,180,.1);color:var(--accent);">📋</div>Executive Summary</div></div>
+  <div style="padding:16px 22px;"><p style="color:var(--text);line-height:1.85;font-size:.9rem;">{{ report.executive_summary }}</p></div>
+</div>
+
+{# ── Highlights & Concerns ─────────────────────────────────────────── #}
+<div class="grid-2 mb-20">
+  <div class="card">
+    <div class="card-hdr"><div class="card-title" style="color:var(--green);">🌟 Highlights</div></div>
+    <div style="padding:12px 18px;">
+      {% for h in (report.highlights or []) %}
+      <div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04);"><span style="color:var(--green);flex-shrink:0;">✅</span><span style="font-size:.85rem;">{{ h }}</span></div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-hdr"><div class="card-title" style="color:var(--red);">⚠️ Concerns</div></div>
+    <div style="padding:12px 18px;">
+      {% for c in (report.concerns or []) %}
+      <div style="display:flex;gap:10px;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.04);"><span style="color:var(--red);flex-shrink:0;">⚠️</span><span style="font-size:.85rem;">{{ c }}</span></div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{# ── Top Performers & At-Risk Named Lists ──────────────────────────── #}
+{% if report.top_performers or report.at_risk_names %}
+<div class="grid-2 mb-20">
+  {% if report.top_performers %}
+  <div class="card">
+    <div class="card-hdr"><div class="card-title" style="color:var(--green);">🏆 Top Performers</div></div>
+    <div style="padding:12px 18px;">
+      {% for p in report.top_performers %}
+      <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04);">
+        <span style="color:var(--accent);flex-shrink:0;font-weight:700;">{{ loop.index }}.</span><span style="font-size:.85rem;">{{ p }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% if report.at_risk_names %}
+  <div class="card">
+    <div class="card-hdr"><div class="card-title" style="color:var(--red);">🚨 At-Risk Students</div></div>
+    <div style="padding:12px 18px;">
+      {% for n in report.at_risk_names %}
+      <div style="display:flex;gap:10px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04);">
+        <span style="color:var(--red);flex-shrink:0;">⚠️</span><span style="font-size:.85rem;">{{ n }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
+
+{# ── 3-col insights ────────────────────────────────────────────────── #}
+<div class="grid-3 mb-20">
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">🔍 Insights</div></div>
+    <div style="padding:12px 18px;">
+      {% for i in ((report.departmental_insights or []) + (report.branch_insights or [])) %}
+      <div style="display:flex;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04);">
+        <span style="color:#58a6ff;flex-shrink:0;">💡</span><span style="font-size:.83rem;">{{ i }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">👩‍🏫 Faculty Recommendations</div></div>
+    <div style="padding:12px 18px;">
+      {% for r in (report.faculty_recommendations or []) %}
+      <div style="display:flex;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04);">
+        <span style="color:var(--accent);flex-shrink:0;">→</span><span style="font-size:.83rem;">{{ r }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">🎯 Student Support</div></div>
+    <div style="padding:12px 18px;">
+      {% for a in (report.student_support_actions or []) %}
+      <div style="display:flex;gap:8px;padding:8px 0;border-bottom:1px solid rgba(255,255,255,.04);">
+        <span style="color:#a855f7;flex-shrink:0;">🎯</span><span style="font-size:.83rem;">{{ a }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{# ── Benchmark & Targets ───────────────────────────────────────────── #}
+<div class="card">
+  <div class="card-hdr"><div class="card-title">📊 Benchmark Comparison & Next Semester Targets</div></div>
+  <div style="padding:16px 22px;display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    <div>
+      <div style="font-size:.68rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">Benchmark Comparison</div>
+      <p style="font-size:.85rem;color:var(--text);line-height:1.75;">{{ report.benchmark_comparison }}</p>
+    </div>
+    <div>
+      <div style="font-size:.68rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">Next Semester Targets</div>
+      {% for t in (report.next_semester_targets or []) %}
+      <div style="display:flex;gap:8px;margin-bottom:8px;"><span style="color:#eab308;flex-shrink:0;">🎯</span><span style="font-size:.83rem;">{{ t }}</span></div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+{% block scripts %}
+{% if report and report.get('_chart_data') %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+Chart.defaults.color = '#8b949e';
+Chart.defaults.font.family = "'JetBrains Mono', monospace";
+Chart.defaults.font.size = 11;
+
+const cd = {{ report._chart_data | tojson }};
+const bs = cd.branch_stats || {};
+const branchNames = Object.keys(bs);
+
+// Chart 1 — Pass/Fail/At-Risk doughnut
+if(cd.total > 0){
+  // BUG-7 FIX: at_risk students overlap with BOTH passing and failing groups
+  // (a student can be passing yet have low attendance → counted as at_risk).
+  // The old formula [passing, failing-at_risk, at_risk] produced slices that
+  // didn't sum to total, and could make failing-at_risk go negative.
+  // Fix: split into three truly disjoint groups:
+  //   atRiskFailing  = students who are both failing AND at-risk
+  //   atRiskPassing  = students who are passing BUT still at-risk (low attendance)
+  //   safe           = passing students who are NOT at-risk
+  const atRiskFailing = Math.min(cd.at_risk, cd.failing);
+  const atRiskPassing = Math.max(0, cd.at_risk - cd.failing);
+  const safe          = Math.max(0, cd.passing - atRiskPassing);
+  new Chart(document.getElementById('pfChart'), {
+    type: 'doughnut',
+    data: {
+      labels: ['Safe (Passing)', 'Failing + At-Risk', 'Passing but At-Risk'],
+      datasets: [{
+        data: [safe, atRiskFailing, atRiskPassing],
+        backgroundColor: ['rgba(34,197,94,.75)','rgba(239,68,68,.75)','rgba(245,158,11,.75)'],
+        borderWidth: 0, hoverOffset: 8,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { position:'right', labels:{ color:'#8b949e', boxWidth:12, padding:14 } } }
+    }
+  });
+}
+
+// Chart 2 — Branch CGPA bar
+if(branchNames.length > 0){
+  const barColors = ['rgba(0,210,180,.7)','rgba(88,166,255,.7)','rgba(168,85,247,.7)','rgba(34,197,94,.7)','rgba(245,158,11,.7)','rgba(239,68,68,.7)'];
+  new Chart(document.getElementById('branchChart'), {
+    type: 'bar',
+    data: {
+      labels: branchNames,
+      datasets: [{
+        label: 'Avg CGPA',
+        data: branchNames.map(b => parseFloat(bs[b].avg_cgpa)||0),
+        backgroundColor: branchNames.map((_,i) => barColors[i % barColors.length]),
+        borderRadius: 6, borderWidth: 0,
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        y: { min:0, max:10, grid:{ color:'rgba(255,255,255,.04)' }, ticks:{ color:'#8b949e' } },
+        x: { grid:{ display:false }, ticks:{ color:'#8b949e', maxRotation:35, font:{ size:9 } } }
+      }
+    }
+  });
+
+  // Chart 3 — Branch attendance + pass rate + at-risk count
+  // BUG-8 FIX: y1 (at-risk count axis) had no max, so if any branch had more
+  // at-risk students than 100 the line would shoot off the top of the chart.
+  // Use suggestedMax = highest at-risk count × 1.3 (with a floor of 10).
+  const atRiskCounts = branchNames.map(b => parseInt(bs[b].at_risk)||0);
+  const y1Max = Math.max(10, Math.ceil(Math.max(...atRiskCounts) * 1.3));
+  new Chart(document.getElementById('branchAttChart'), {
+    type: 'bar',
+    data: {
+      labels: branchNames,
+      datasets: [
+        { label: 'Avg Attendance %', data: branchNames.map(b => parseFloat(bs[b].avg_att)||0),  backgroundColor:'rgba(88,166,255,.6)',  borderRadius:5, borderWidth:0, yAxisID:'y' },
+        { label: 'Pass Rate %',      data: branchNames.map(b => parseFloat(bs[b].pass_rate)||0), backgroundColor:'rgba(34,197,94,.6)',   borderRadius:5, borderWidth:0, yAxisID:'y' },
+        { label: 'At-Risk Count', type:'line', data: atRiskCounts, borderColor:'#ef4444', backgroundColor:'rgba(239,68,68,.1)', pointRadius:5, fill:false, tension:0.3, yAxisID:'y1' }
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend:{ labels:{ color:'#8b949e', boxWidth:12 } } },
+      scales: {
+        y:  { min:0, max:100, grid:{ color:'rgba(255,255,255,.04)' }, ticks:{ color:'#8b949e', callback:v=>v+'%' } },
+        y1: { position:'right', min:0, max:y1Max, grid:{ display:false }, ticks:{ color:'#8b949e' }, title:{ display:true, text:'At-Risk Count', color:'#8b949e' } },
+        x:  { grid:{ display:false }, ticks:{ color:'#8b949e', maxRotation:35, font:{ size:9 } } }
+      }
+    }
+  });
+}
+
+// Chart 4 — Top 10
+const top10 = cd.top10 || [];
+if(top10.length > 0 && document.getElementById('topChart')){
+  new Chart(document.getElementById('topChart'), {
+    type: 'bar',
+    data: {
+      labels: top10.map(s => (s.name||'').split(' ').slice(0,2).join(' ')),
+      datasets: [{ label:'CGPA', data: top10.map(s=>parseFloat(s.cgpa)||0), backgroundColor:'rgba(34,197,94,.7)', borderRadius:5, borderWidth:0 }]
+    },
+    options: {
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } },
+      scales:{ x:{ min:0, max:10, grid:{ color:'rgba(255,255,255,.04)' }, ticks:{ color:'#8b949e' } }, y:{ grid:{ display:false }, ticks:{ color:'#8b949e', font:{ size:9 } } } }
+    }
+  });
+}
+
+// Chart 5 — Bottom 10
+const bottom10 = cd.bottom10 || [];
+if(bottom10.length > 0 && document.getElementById('bottomChart')){
+  new Chart(document.getElementById('bottomChart'), {
+    type: 'bar',
+    data: {
+      labels: bottom10.map(s => (s.name||'').split(' ').slice(0,2).join(' ')),
+      datasets: [{ label:'CGPA', data: bottom10.map(s=>parseFloat(s.cgpa)||0), backgroundColor: bottom10.map(s=>parseFloat(s.cgpa||0)<5?'rgba(239,68,68,.75)':'rgba(245,158,11,.65)'), borderRadius:5, borderWidth:0 }]
+    },
+    options: {
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ display:false } },
+      scales:{ x:{ min:0, max:10, grid:{ color:'rgba(255,255,255,.04)' }, ticks:{ color:'#8b949e' } }, y:{ grid:{ display:false }, ticks:{ color:'#8b949e', font:{ size:9 } } } }
+    }
+  });
+}
+</script>
+{% endif %}
+{% endblock %}

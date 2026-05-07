@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Notifications{% endblock %}
+{% block page_title %}// My Notifications{% endblock %}
+{% block content %}
+
+<div style="max-width:720px;">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+    <div class="sec-title">🔔 Notifications</div>
+    <div style="display:flex;gap:8px;">
+      <form method="POST" action="{{ url_for('notifications.mark_all_read') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn btn-outline" style="font-size:.78rem;padding:5px 12px;">✓ Mark All Read</button>
+      </form>
+      <form method="POST" action="{{ url_for('notifications.clear_all') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="btn btn-outline" style="font-size:.78rem;padding:5px 12px;color:#ef4444;border-color:rgba(239,68,68,.3);">🗑 Clear Read</button>
+      </form>
+    </div>
+  </div>
+
+  {% if notifs %}
+  <div style="display:flex;flex-direction:column;gap:8px;">
+    {% for n in notifs %}
+    <div class="card" {{ ('style="padding:14px 16px; border-color:rgba(0,204,204,.3); background:rgba(0,204,204,.04);"' if not n.is_read else 'style="padding:14px 16px; border-color:rgba(255,255,255,.06); background:transparent;"')|safe }}>
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;">
+        <div style="flex:1;">
+          <div {{ ('style="font-weight:600; font-size:.9rem; color:#e6edf3; margin-bottom:4px;"' if not n.is_read else 'style="font-weight:400; font-size:.9rem; color:#c9d1d9; margin-bottom:4px;"')|safe }}>
+            {% if not n.is_read %}<span style="color:#00cccc;margin-right:6px;">●</span>{% endif %}
+            {{ n.title }}
+          </div>
+          <div style="font-size:.82rem;color:#8b949e;">{{ n.message }}</div>
+        </div>
+        <div style="font-size:.74rem;color:#8b949e;white-space:nowrap;flex-shrink:0;">
+          {{ n.created_at[:16] }}
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="card" style="text-align:center;padding:48px;">
+    <div style="font-size:3rem;margin-bottom:12px;">🔔</div>
+    <div style="color:#8b949e;">No notifications yet. You'll receive updates when your records are changed or interventions are assigned.</div>
+  </div>
+  {% endif %}
+
+  <div style="margin-top:16px;">
+    <a href="{{ url_for('student.profile') }}" class="btn btn-outline" style="font-size:.8rem;">← Back to Profile</a>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,155 @@
+{% extends 'base.html' %}
+{% block title %}Super Admin{% endblock %}
+{% block page_title %}// <i class="fa-solid fa-bolt-lightning"></i> Super Admin Dashboard{% endblock %}
+{% block content %}
+
+<div class="stats-row">
+  <div class="stat-card sc-cyan"><div class="s-icon"><i class="fa-solid fa-building-columns"></i></div><div class="s-label">Colleges</div><div class="s-val" data-count="{{ colleges|length }}">{{ colleges|length }}</div><div class="s-sub">registered</div></div>
+  <div class="stat-card sc-green"><div class="s-icon"><i class="fa-solid fa-shield-halved"></i></div><div class="s-label">Admins</div><div class="s-val" data-count="{{ admins|length }}">{{ admins|length }}</div><div class="s-sub">active</div></div>
+  <div class="stat-card sc-blue"><div class="s-icon"><i class="fa-solid fa-chalkboard-user"></i></div><div class="s-label">Teachers</div><div class="s-val" data-count="{{ total_teachers }}">{{ total_teachers }}</div><div class="s-sub">total</div></div>
+  <div class="stat-card sc-purple"><div class="s-icon"><i class="fa-solid fa-user-graduate"></i></div><div class="s-label">Students</div><div class="s-val" data-count="{{ total_students }}">{{ total_students }}</div><div class="s-sub">synced</div></div>
+  {% if pending_registrations %}
+   <div class="stat-card sc-yellow">
+     <div class="s-icon"><i class="fa-solid fa-triangle-exclamation"></i></div>
+    <div class="s-label">Pending</div>
+    <div class="s-val" data-count="{{ pending_registrations|length }}">{{ pending_registrations|length }}</div>
+    <div class="s-sub"><a href="{{ url_for('super_admin.registrations') }}" style="color:#f59e0b;">view →</a></div>
+  </div>
+  {% endif %}
+</div>
+
+{% if pending_registrations %}
+<div class="card" style="border-color:rgba(245,158,11,.25);background:rgba(245,158,11,.03);margin-bottom:20px;">
+  <div class="card-hdr">
+    <div class="card-title" style="color:#f59e0b;"><i class="fa-solid fa-hourglass-half"></i> Pending College Registrations</div>
+    <a href="{{ url_for('super_admin.registrations') }}" class="btn btn-warning btn-sm ripple-btn">View All</a>
+  </div>
+  <table class="spas-table">
+    <thead><tr><th>College</th><th>Code</th><th>Contact</th><th>Submitted</th><th>Action</th></tr></thead>
+    <tbody>
+    {% for r in pending_registrations %}
+    <tr>
+      <td><div class="fw700">{{ r.college_name }}</div><div class="text-dim text-xs">{{ r.city }}, {{ r.state }}</div></td>
+      <td><span class="mono text-blue">{{ r.college_code }}</span></td>
+      <td><div class="fw600 text-sm">{{ r.contact_name }}</div><div class="text-dim text-xs">{{ r.contact_email }}</div></td>
+      <td class="mono text-dim text-xs">{{ (r.submitted_at or '')[:10] }}</td>
+      <td>
+        <form method="POST" action="{{ url_for('super_admin.approve_registration', rid=r.id) }}" id="approve-reg-{{ r.id }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <button type="button" class="btn btn-success btn-xs ripple-btn"
+                  onclick="spasConfirm('Approve <b>{{ r.college_name }}</b>?<br><small>Credentials will be emailed to {{ r.contact_email }}</small>', function(){ document.getElementById('approve-reg-{{ r.id }}').submit(); }, {icon:'<i class=\'fa-solid fa-check-double\'></i>',confirmText:'Approve',danger:false})">
+            <i class="fa-solid fa-check"></i> Approve
+          </button>
+        </form>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endif %}
+
+<div class="grid-2">
+{# ── Colleges ── #}
+<div class="card">
+  <div class="card-hdr">
+    <div class="card-title"><i class="fa-solid fa-building-columns"></i> Registered Colleges</div>
+    <a href="{{ url_for('super_admin.create_college') }}" class="btn-primary-spas btn-sm ripple-btn">
+      <span class="btn-ic"><i class="fa-solid fa-plus"></i></span> Add College
+    </a>
+  </div>
+  {% if colleges %}
+  <table class="spas-table">
+    <thead><tr><th>College</th><th>Code</th><th>City</th><th>Actions</th></tr></thead>
+    <tbody>
+    {% for c in colleges %}
+    <tr>
+      <td><div class="fw700">{{ c.name }}</div><div class="text-dim text-xs">{{ c.university or 'RGPV Bhopal' }}</div></td>
+      <td><span class="mono text-blue text-sm">{{ c.college_code }}</span></td>
+      <td class="text-dim text-sm">{{ c.city or '—' }}</td>
+      <td>
+        <div class="act-row">
+          <a href="{{ url_for('super_admin.edit_college', cid=c.id) }}" class="btn btn-outline btn-xs ripple-btn"><i class="fa-solid fa-pen-to-square"></i> Edit</a>
+          <form method="POST" action="{{ url_for('super_admin.delete_college', cid=c.id) }}" id="del-col-{{ c.id }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="button" class="btn btn-danger btn-xs ripple-btn"
+                    onclick="spasConfirm('Delete college <b>{{ c.name }}</b>?<br><small>All associated data will be removed.</small>', function(){ document.getElementById('del-col-{{ c.id }}').submit(); })">
+              <i class="fa-solid fa-trash-can"></i> Delete
+            </button>
+          </form>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="padding:32px;text-align:center;color:var(--text2);">
+    No colleges yet. <a href="{{ url_for('super_admin.create_college') }}" style="color:var(--blue);">Add one →</a>
+  </div>
+  {% endif %}
+</div>
+
+{# ── Admin Accounts ── #}
+<div class="card">
+  <div class="card-hdr">
+    <div class="card-title"><i class="fa-solid fa-user-tie"></i> Admin Accounts</div>
+    <a href="{{ url_for('super_admin.create_admin') }}" class="btn-primary-spas btn-sm ripple-btn">
+      <span class="btn-ic"><i class="fa-solid fa-plus"></i></span> Add Admin
+    </a>
+  </div>
+  {% if admins %}
+  <table class="spas-table">
+    <thead><tr><th>Admin</th><th>College</th><th>Email</th><th>Actions</th></tr></thead>
+    <tbody>
+    {% for a in admins %}
+    <tr>
+      <td>
+        <div style="display:flex;align-items:center;gap:9px;">
+          {% if a.profile_photo %}
+          <div class="su-avatar" style="width:30px;height:30px;padding:0;overflow:hidden;border-radius:50%;"><img src="{{ a.profile_photo }}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"></div>
+          {% else %}
+          <div class="su-avatar" style="width:30px;height:30px;font-size:.75rem;">{{ (a.full_name or a.username)[0].upper() }}</div>
+          {% endif %}
+          <div>
+            <div class="fw700 text-sm">{{ a.full_name or a.username }}</div>
+            <div class="text-dim text-xs mono">{{ a.username }}</div>
+            {% if a.must_change_password %}<span class="badge badge-yellow" style="font-size:.58rem;">temp pwd</span>{% endif %}
+          </div>
+        </div>
+      </td>
+      <td><div class="fw600 text-sm">{{ a.college_name or '—' }}</div><div class="mono text-blue text-xs">{{ a.college_code or '' }}</div></td>
+      <td class="text-dim text-xs">{{ a.email or '—' }}</td>
+      <td>
+        <div class="act-row">
+          <a href="{{ url_for('super_admin.edit_admin', uid=a.id) }}" class="btn btn-outline btn-xs ripple-btn"><i class="fa-solid fa-pen-to-square"></i> Edit</a>
+          <form method="POST" action="{{ url_for('super_admin.send_reset_to_admin', uid=a.id) }}" id="reset-admin-{{ a.id }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="button" class="btn btn-warning btn-xs ripple-btn"
+                    onclick="spasConfirm('Send password reset email to <b>{{ a.email or a.username }}</b>?', function(){ document.getElementById('reset-admin-{{ a.id }}').submit(); }, {icon:'<i class=\'fa-solid fa-envelope-open-text\'></i>',confirmText:'Send Email',danger:false})">
+              <i class="fa-solid fa-envelope"></i> Reset
+            </button>
+          </form>
+          <form method="POST" action="{{ url_for('super_admin.delete_admin', uid=a.id) }}" id="del-admin-{{ a.id }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="button" class="btn btn-danger btn-xs ripple-btn"
+                    onclick="spasConfirm('Delete admin <b>{{ a.username }}</b>? This cannot be undone.', function(){ document.getElementById('del-admin-{{ a.id }}').submit(); })">
+              <i class="fa-solid fa-trash-can"></i>
+            </button>
+          </form>
+        </div>
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div style="padding:32px;text-align:center;color:var(--text2);">No admins yet.</div>
+  {% endif %}
+</div>
+</div>
+
+<div class="info-box" style="margin-top:16px;font-size:.78rem;">
+  <strong><i class="fa-solid fa-shield-halved"></i> Password Reset Policy:</strong> Admins reset passwords via the <strong>Forgot Password</strong> link using their registered email. Use <strong><i class="fa-solid fa-envelope"></i> Reset</strong> above to send a reset link directly from here.
+</div>
+{% endblock %}

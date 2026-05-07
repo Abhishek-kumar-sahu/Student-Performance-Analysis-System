@@ -1,0 +1,110 @@
+{% extends 'base.html' %}
+{% block title %}AI Query Dashboard{% endblock %}
+{% block page_title %}// 🤖 AI Natural-Language Query{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>AI Query Assistant</h1>
+    <p>Ask questions about your students in plain English — powered by SPAS AI.</p>
+  </div>
+</div>
+
+{# Query input #}
+<div class="card mb-20">
+  <div class="card-hdr"><div class="card-title"><div class="card-title-icon" style="background:rgba(0,210,180,.1);color:#00d2b4;">🤖</div>Ask Anything About Your Students</div></div>
+  <div style="padding:24px 24px 20px;">
+    <div style="display:flex;gap:12px;margin-bottom:18px;">
+      <input type="text" id="queryInput" class="f-control" placeholder="e.g. How many students have CGPA below 5? Who has the best attendance? What is the pass rate?" style="flex:1;"/>
+      <button onclick="askQuery()" class="btn btn-primary ripple-btn" id="askBtn" style="white-space:nowrap;">🔍 Ask AI</button>
+    </div>
+    {# Answer area #}
+    <div id="answerArea" style="display:none;">
+      <div style="border-top:1px solid rgba(255,255,255,.08);padding-top:16px;">
+        <div style="font-size:.72rem;color:rgba(0,210,180,.6);letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px;font-family:monospace;">AI Response</div>
+        <div id="answerText" style="color:var(--text);line-height:1.75;font-size:.9rem;background:rgba(0,210,180,.03);border:1px solid rgba(0,210,180,.12);border-radius:10px;padding:16px 18px;"></div>
+      </div>
+    </div>
+    {# Loading #}
+    <div id="loadingArea" style="display:none;padding:20px;text-align:center;">
+      <div style="display:inline-flex;align-items:center;gap:10px;color:rgba(0,210,180,.6);font-family:monospace;font-size:.85rem;">
+        <div style="width:16px;height:16px;border:2px solid rgba(0,210,180,.3);border-top-color:#00d2b4;border-radius:50%;animation:spin 1s linear infinite;"></div>
+        Querying AI…
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Suggested questions #}
+<div class="card mb-20">
+  <div class="card-hdr"><div class="card-title">💡 Suggested Questions</div></div>
+  <div style="padding:16px 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px;">
+    {% set questions = [
+      "Who are the top 5 performing students?",
+      "Which branch has the highest average CGPA?",
+      "How many students have CGPA below 5?",
+      "Who has the lowest attendance in the college?",
+      "How many students are at risk of failing?",
+      "What is the overall pass rate?",
+      "Which branch has the most at-risk students?",
+      "How many students have backlogs?",
+      "How many students have attendance below 60%?",
+      "Give me a full performance summary of the college",
+      "Compare all branches by CGPA and attendance",
+      "Who are the bottom 5 students by CGPA?"
+    ] %}
+    {% for q in questions %}
+    <button onclick="setQuery(this.textContent)" class="btn btn-ghost" style="text-align:left;font-size:.79rem;padding:10px 14px;border-radius:8px;border-color:rgba(255,255,255,.1);color:var(--text);">{{ q }}</button>
+    {% endfor %}
+  </div>
+</div>
+
+{# Context stats #}
+<div class="card">
+  <div class="card-hdr"><div class="card-title">📊 Your Data Context</div></div>
+  <div style="padding:16px 20px;display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:14px;">
+    <div style="text-align:center;padding:14px;background:rgba(255,255,255,.02);border-radius:10px;border:1px solid rgba(255,255,255,.06);">
+      <div style="font-size:1.6rem;font-weight:800;color:#00d2b4;">{{ total_students }}</div>
+      <div style="font-size:.72rem;color:var(--text-dim);margin-top:4px;">Total Students</div>
+    </div>
+    <div style="text-align:center;padding:14px;background:rgba(255,255,255,.02);border-radius:10px;border:1px solid rgba(255,255,255,.06);">
+      <div style="font-size:1.1rem;font-weight:700;color:#58a6ff;">{{ col.name if col else 'N/A' }}</div>
+      <div style="font-size:.72rem;color:var(--text-dim);margin-top:4px;">College</div>
+    </div>
+  </div>
+</div>
+
+<style>
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+{% endblock %}
+{% block scripts %}
+<script>
+function setQuery(q){
+  document.getElementById('queryInput').value=q;
+  document.getElementById('answerArea').style.display='none';
+}
+function askQuery(){
+  const q=document.getElementById('queryInput').value.trim();
+  if(!q)return;
+  document.getElementById('answerArea').style.display='none';
+  document.getElementById('loadingArea').style.display='block';
+  document.getElementById('askBtn').disabled=true;
+  fetch('{{ url_for("analytics.ai_query_ask") }}',{
+    method:'POST',
+    headers:{'Content-Type':'application/json','X-CSRF-Token':document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')||''},
+    body:JSON.stringify({question:q})
+  }).then(r=>r.json()).then(d=>{
+    document.getElementById('loadingArea').style.display='none';
+    document.getElementById('answerArea').style.display='block';
+    document.getElementById('answerText').innerHTML=d.answer||'No answer received.';
+    document.getElementById('askBtn').disabled=false;
+  }).catch(()=>{
+    document.getElementById('loadingArea').style.display='none';
+    document.getElementById('answerArea').style.display='block';
+    document.getElementById('answerText').textContent='Error contacting AI. Please try again.';
+    document.getElementById('askBtn').disabled=false;
+  });
+}
+document.getElementById('queryInput').addEventListener('keypress',e=>{if(e.key==='Enter')askQuery();});
+</script>
+{% endblock %}

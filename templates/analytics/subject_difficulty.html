@@ -1,0 +1,151 @@
+{% extends 'base.html' %}
+{% block title %}Subject Difficulty Ranking{% endblock %}
+{% block page_title %}// 📚 Subject Difficulty Ranking{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Subject Difficulty Ranking</h1>
+    <p>Ranked by failure rates across all students — identify curriculum bottlenecks.</p>
+  </div>
+</div>
+
+{# Filters #}
+<div class="card mb-20" style="padding:18px 20px;">
+  <form method="GET" style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
+    <div class="f-group" style="margin:0;min-width:180px;">
+      <label class="f-label">Branch</label>
+      <select name="branch" class="f-control f-control-sm">
+        <option value="">All Branches</option>
+        {% for b in branches %}<option value="{{ b.branch_code }}" {% if branch_filter==b.branch_code %}selected{% endif %}>{{ b.branch }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="f-group" style="margin:0;min-width:140px;">
+      <label class="f-label">Semester</label>
+      <select name="semester" class="f-control f-control-sm">
+        <option value="">All Semesters</option>
+        {% for s in sems %}<option value="{{ s }}" {% if sem_filter==s|string %}selected{% endif %}>Sem {{ s }}</option>{% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary btn-sm">Apply</button>
+    <a href="{{ url_for('analytics.subject_difficulty') }}" class="btn btn-ghost btn-sm">Reset</a>
+  </form>
+</div>
+
+{% if subjects %}
+{# Difficulty distribution stats #}
+<div class="stats-row mb-20">
+  {% set very_hard = subjects|selectattr('difficulty','equalto','Very Hard')|list|length %}
+  {% set hard = subjects|selectattr('difficulty','equalto','Hard')|list|length %}
+  {% set medium = subjects|selectattr('difficulty','equalto','Medium')|list|length %}
+  {% set easy = subjects|selectattr('difficulty','equalto','Easy')|list|length %}
+  <div class="stat-card sc-red"><div class="s-icon">🔴</div><div class="s-label">Very Hard (≥40% fail)</div><div class="s-val" data-count="{{ very_hard }}">{{ very_hard }}</div></div>
+  <div class="stat-card sc-yellow"><div class="s-icon">🟠</div><div class="s-label">Hard (25-39%)</div><div class="s-val" data-count="{{ hard }}">{{ hard }}</div></div>
+  <div class="stat-card sc-blue"><div class="s-icon">🟡</div><div class="s-label">Medium (10-24%)</div><div class="s-val" data-count="{{ medium }}">{{ medium }}</div></div>
+  <div class="stat-card sc-green"><div class="s-icon">🟢</div><div class="s-label">Easy (&lt;10%)</div><div class="s-val" data-count="{{ easy }}">{{ easy }}</div></div>
+</div>
+
+{# AI Insights #}
+{% if ai_ranking %}
+<div class="card mb-20" style="border-color:rgba(0,210,180,.25);">
+  <div class="card-hdr"><div class="card-title"><div class="card-title-icon" style="background:rgba(0,210,180,.1);color:#00d2b4;">🤖</div>AI Curriculum Analysis</div></div>
+  <div style="padding:18px 20px;">
+    <p style="color:var(--text);line-height:1.7;margin-bottom:14px;">{{ ai_ranking.summary }}</p>
+    {% if ai_ranking.curriculum_insights %}
+    <div style="margin-bottom:14px;">
+      <div style="font-size:.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">Key Insights</div>
+      {% for ins in ai_ranking.curriculum_insights %}<div class="info-box" style="margin-bottom:6px;padding:8px 12px;">{{ ins }}</div>{% endfor %}
+    </div>
+    {% endif %}
+    {% if ai_ranking.recommended_actions %}
+    <div>
+      <div style="font-size:.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">Recommended Actions</div>
+      {% for a in ai_ranking.recommended_actions %}<div style="display:flex;gap:8px;margin-bottom:6px;"><span style="color:#00d2b4;">→</span><span style="font-size:.83rem;color:var(--text);">{{ a }}</span></div>{% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+{# Chart + Table side by side #}
+<div class="grid-2 mb-20">
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">📊 Failure Rate Chart</div></div>
+    <div class="chart-wrap" style="height:260px;"><canvas id="diffChart"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">🔴 Hardest Subjects</div></div>
+    <div style="padding:12px;">
+      {% for s in subjects[:5] %}
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid rgba(255,255,255,.05);">
+        <div>
+          <div style="font-weight:600;font-size:.85rem;">{{ s.subject_name[:35] }}</div>
+          <div style="font-size:.72rem;color:var(--text-dim);">{{ s.total_attempts }} attempts · avg {{ '%.1f'|format(s.avg_marks or 0) }} marks</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:1.1rem;font-weight:800;color:{{ s.diff_color }};">{{ s.fail_rate }}%</div>
+          <div class="badge" style="background:{{ s.diff_color }}22;color:{{ s.diff_color }};border-color:{{ s.diff_color }}44;font-size:.65rem;">{{ s.difficulty }}</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{# Full table #}
+<div class="card">
+  <div class="card-hdr">
+    <div class="card-title">📋 All Subjects Ranked</div>
+    <div class="search-wrap"><span class="search-icon">🔍</span><input type="text" placeholder="Search subject…" class="f-control f-control-sm" style="width:180px;" oninput="filterTable(this,'subjTbl')"/></div>
+  </div>
+  <div class="table-wrap">
+  <table class="spas-table" id="subjTbl">
+    <thead><tr><th>#</th><th>Subject</th><th>Difficulty</th><th>Fail Rate</th><th>Fail/Total</th><th>Avg Marks</th><th>Avg Attendance</th></tr></thead>
+    <tbody>
+    {% for s in subjects %}
+    <tr>
+      <td class="mono text-xs text-dim">{{ loop.index }}</td>
+      <td>
+        <div style="font-weight:600;font-size:.84rem;">{{ s.subject_name }}</div>
+        {% if s.subject_code %}<div class="mono text-xs text-dim">{{ s.subject_code }}</div>{% endif %}
+      </td>
+      <td><span class="badge" style="background:{{ s.diff_color }}22;color:{{ s.diff_color }};border-color:{{ s.diff_color }}44;">{{ s.difficulty }}</span></td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="progress-bar" style="width:70px;"><div class="progress-fill" data-width="{{ s.fail_rate }}%" style="width:0;background:{{ s.diff_color }};"></div></div>
+          <span class="mono fw700" style="color:{{ s.diff_color }};">{{ s.fail_rate }}%</span>
+        </div>
+      </td>
+      <td class="mono text-sm">{{ s.fail_count|int }}/{{ s.total_attempts }}</td>
+      <td class="mono text-sm">{{ '%.1f'|format(s.avg_marks or 0) }}</td>
+      <td class="mono text-sm">{{ '%.1f'|format(s.avg_attendance or 0) }}%</td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% else %}
+<div class="empty-state"><div class="empty-state-icon">📚</div><h3>No subject data</h3><p>Upload marks data to see difficulty rankings.</p></div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+Chart.defaults.color = '#8b949e';
+Chart.defaults.font.family = "'JetBrains Mono', monospace";
+Chart.defaults.font.size = 11;
+{% if subjects %}
+const labels = {{ subjects[:12]|map(attribute='subject_name')|list|tojson }};
+const failRates = {{ subjects[:12]|map(attribute='fail_rate')|list|tojson }};
+const colors = {{ subjects[:12]|map(attribute='diff_color')|list|tojson }};
+if(labels.length > 0){
+  new Chart(document.getElementById('diffChart'),{
+    type:'bar',
+    data:{labels:labels,datasets:[{data:failRates,backgroundColor:colors.map(c=>c+'99'),borderColor:colors,borderWidth:1.5,borderRadius:5}]},
+    options:{responsive:true,maintainAspectRatio:false,indexAxis:'y',plugins:{legend:{display:false}},
+      scales:{x:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b949e',callback:v=>v+'%'},max:100},y:{grid:{display:false},ticks:{color:'#8b949e',font:{size:10}}}}}
+  });
+}
+{% endif %}
+</script>
+{% endblock %}

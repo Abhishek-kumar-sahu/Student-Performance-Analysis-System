@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% block title %}Multi-College Comparison{% endblock %}
+{% block page_title %}// 🏛️ Multi-College Comparison{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Multi-College Comparison</h1>
+    <p>Network-wide academic performance insights across all registered colleges.</p>
+  </div>
+</div>
+
+{% if ai_comparison %}
+<div class="card mb-20" style="border-color:rgba(0,210,180,.25);">
+  <div class="card-hdr"><div class="card-title"><div class="card-title-icon" style="background:rgba(0,210,180,.1);color:#00d2b4;">🤖</div>AI Network Analysis</div></div>
+  <div style="padding:18px 20px;">
+    <p style="color:var(--text);line-height:1.75;margin-bottom:16px;">{{ ai_comparison.summary }}</p>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:18px;margin-bottom:16px;">
+      <div style="background:rgba(34,197,94,.06);border:1px solid rgba(34,197,94,.2);border-radius:10px;padding:14px;">
+        <div style="font-size:.7rem;color:rgba(34,197,94,.7);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Best Performing</div>
+        <div style="font-weight:700;color:#22c55e;font-size:.95rem;">🏆 {{ ai_comparison.best_performing }}</div>
+      </div>
+      <div style="background:rgba(239,68,68,.06);border:1px solid rgba(239,68,68,.2);border-radius:10px;padding:14px;">
+        <div style="font-size:.7rem;color:rgba(239,68,68,.7);text-transform:uppercase;letter-spacing:.1em;margin-bottom:6px;">Needs Support</div>
+        <div style="font-weight:700;color:#ef4444;font-size:.95rem;">⚠️ {{ ai_comparison.needs_support }}</div>
+      </div>
+    </div>
+    {% if ai_comparison.insights %}
+    <div style="margin-bottom:14px;">
+      <div style="font-size:.72rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.1em;margin-bottom:8px;">Network Insights</div>
+      {% for ins in ai_comparison.insights %}<div style="display:flex;gap:8px;margin-bottom:6px;"><span style="color:#00d2b4;">→</span><span style="font-size:.83rem;">{{ ins }}</span></div>{% endfor %}
+    </div>
+    {% endif %}
+    {% if ai_comparison.benchmark_targets %}
+    <div style="display:flex;gap:12px;flex-wrap:wrap;">
+      {% set bt = ai_comparison.benchmark_targets %}
+      <span class="badge badge-blue">🎯 CGPA Target: {{ bt.cgpa }}</span>
+      <span class="badge badge-green">🎯 Attendance Target: {{ bt.attendance }}%</span>
+      <span class="badge badge-yellow">🎯 Pass Rate Target: {{ bt.pass_rate }}%</span>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
+
+{# Summary stats across network #}
+{% if college_stats %}
+<div class="stats-row mb-20">
+  <div class="stat-card sc-blue"><div class="s-icon">🏫</div><div class="s-label">Colleges</div><div class="s-val" data-count="{{ college_stats|length }}">{{ college_stats|length }}</div></div>
+  <div class="stat-card sc-cyan"><div class="s-icon">👥</div><div class="s-label">Total Students</div><div class="s-val" data-count="{{ college_stats|sum(attribute='total') }}">{{ college_stats|sum(attribute='total') }}</div></div>
+  <div class="stat-card sc-purple"><div class="s-icon">👩‍🏫</div><div class="s-label">Total Teachers</div><div class="s-val" data-count="{{ college_stats|sum(attribute='teachers') }}">{{ college_stats|sum(attribute='teachers') }}</div></div>
+  <div class="stat-card sc-green"><div class="s-icon">🎯</div><div class="s-label">Network Avg CGPA</div><div class="s-val">{{ (college_stats|sum(attribute='avg_cgpa')/college_stats|length)|round(2) if college_stats else 0 }}</div></div>
+</div>
+
+{# Charts #}
+<div class="grid-2 mb-20">
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">📊 Avg CGPA Comparison</div></div>
+    <div class="chart-wrap"><canvas id="cgpaChart"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-hdr"><div class="card-title">📈 Pass Rate vs At-Risk %</div></div>
+    <div class="chart-wrap"><canvas id="passChart"></canvas></div>
+  </div>
+</div>
+
+{# College comparison table #}
+<div class="card">
+  <div class="card-hdr"><div class="card-title">🏫 College Rankings</div></div>
+  <div class="table-wrap">
+  <table class="spas-table">
+    <thead><tr><th>#</th><th>College</th><th>Students</th><th>Teachers</th><th>Avg CGPA</th><th>Avg Attendance</th><th>Pass Rate</th><th>At-Risk %</th></tr></thead>
+    <tbody>
+    {% for c in college_stats|sort(attribute='avg_cgpa',reverse=true) %}
+    <tr>
+      <td class="mono text-xs text-dim">{{ loop.index }}</td>
+      <td>
+        <div style="font-weight:600;">{{ c.name }}</div>
+        <div class="mono text-xs text-dim">{{ c.college_code }} · {{ c.city or '' }}</div>
+      </td>
+      <td class="mono text-sm">{{ c.total }}</td>
+      <td class="mono text-sm">{{ c.teachers }}</td>
+      <td>
+        <strong class="mono {% if c.avg_cgpa>=8 %}text-green{% elif c.avg_cgpa>=6 %}text-blue{% elif c.avg_cgpa>=5 %}text-yellow{% else %}text-red{% endif %}">{{ "%.2f"|format(c.avg_cgpa) }}</strong>
+      </td>
+      <td class="mono text-sm {% if c.avg_att<60 %}text-red{% elif c.avg_att<75 %}text-yellow{% else %}text-green{% endif %}">{{ "%.1f"|format(c.avg_att) }}%</td>
+      <td>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <div class="progress-bar" style="width:55px;"><div class="progress-fill" data-width="{{ "%.1f"|format(c.pass_rate) }}%" style="width:0;background:{% if c.pass_rate>=80 %}#22c55e{% elif c.pass_rate>=60 %}#eab308{% else %}#ef4444{% endif %};"></div></div>
+          <span class="mono text-sm">{{ "%.1f"|format(c.pass_rate) }}%</span>
+        </div>
+      </td>
+      <td><span class="badge {% if (c.at_risk_pct|default(0))>=30 %}badge-red{% elif (c.at_risk_pct|default(0))>=15 %}badge-yellow{% else %}badge-green{% endif %}">{{ "%.1f"|format(c.at_risk_pct|default(0)) }}%</span></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</div>
+{% else %}
+<div class="empty-state"><div class="empty-state-icon">🏛️</div><h3>No colleges yet</h3><p>Register colleges to see comparison data.</p></div>
+{% endif %}
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+{% if college_stats %}
+const cdata = {{ college_stats|tojson }};
+const labels = cdata.map(c=>c.name.length>20?c.name.substr(0,18)+'…':c.name);
+new Chart(document.getElementById('cgpaChart'),{
+  type:'bar',
+  data:{labels:labels,datasets:[{label:'Avg CGPA',data:cdata.map(c=>c.avg_cgpa),backgroundColor:'rgba(0,210,180,.6)',borderColor:'#00d2b4',borderWidth:1.5,borderRadius:6}]},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+    scales:{y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b949e'},beginAtZero:true,max:10},x:{grid:{display:false},ticks:{color:'#8b949e',font:{size:10}}}}}
+});
+new Chart(document.getElementById('passChart'),{
+  type:'bar',
+  data:{labels:labels,datasets:[
+    {label:'Pass Rate %',data:cdata.map(c=>c.pass_rate),backgroundColor:'rgba(34,197,94,.6)',borderRadius:6,borderWidth:0},
+    {label:'At-Risk %',data:cdata.map(c=>c.at_risk_pct),backgroundColor:'rgba(239,68,68,.55)',borderRadius:6,borderWidth:0}
+  ]},
+  options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{labels:{color:'#8b949e'}}},
+    scales:{y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b949e'},beginAtZero:true,max:100},x:{grid:{display:false},ticks:{color:'#8b949e',font:{size:10}}}}}
+});
+{% endif %}
+</script>
+{% endblock %}

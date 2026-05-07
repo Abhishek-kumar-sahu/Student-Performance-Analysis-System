@@ -1,0 +1,259 @@
+{% extends 'base.html' %}
+{% block title %}Admin Dashboard{% endblock %}
+{% block page_title %}// Admin Dashboard{% endblock %}
+{% block content %}
+
+<style>
+/* ── Student / Teacher avatar in tables ── */
+.stu-cell  { display:flex;align-items:center;gap:10px; }
+.stu-av    {
+  width:32px;height:32px;border-radius:50%;flex-shrink:0;
+  background:linear-gradient(135deg,#003030,#005555);
+  border:1.5px solid var(--border);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.75rem;font-weight:700;color:var(--accent);
+  overflow:hidden;
+}
+.stu-av img { width:100%;height:100%;object-fit:cover;border-radius:50%; }
+.stu-name   { font-size:.82rem;font-weight:600;color:var(--text); }
+
+/* Teacher cards */
+.teacher-grid { display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px; }
+.teacher-card {
+  display:flex;align-items:center;gap:12px;
+  padding:12px 14px;border-radius:9px;
+  background:rgba(0,255,255,.03);border:1px solid var(--border);
+  transition:all .2s;
+}
+.teacher-card:hover { border-color:rgba(0,255,255,.3);background:rgba(0,255,255,.06); }
+.tc-avatar {
+  width:40px;height:40px;border-radius:50%;flex-shrink:0;
+  background:linear-gradient(135deg,#1a0030,#3b0080);
+  border:2px solid rgba(168,85,247,.4);
+  display:flex;align-items:center;justify-content:center;
+  font-size:.9rem;font-weight:700;color:#a855f7;
+  overflow:hidden;
+}
+.tc-avatar img { width:100%;height:100%;object-fit:cover;border-radius:50%; }
+.tc-name  { font-size:.8rem;font-weight:700;color:var(--text);line-height:1.2; }
+.tc-dept  { font-size:.65rem;color:var(--text-dim);margin-top:2px; }
+.tc-email { font-size:.62rem;color:var(--accent);margin-top:1px;
+            white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:130px; }
+</style>
+
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>{{ col.name if col else 'Admin' }}</h1>
+    <p>Academic oversight &amp; data management portal</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('admin.student_registrations') }}" class="btn btn-outline btn-sm"><i class="fa-solid fa-id-card"></i> Student Requests</a>
+    <a href="{{ url_for('upload.upload_page') }}" class="btn btn-primary btn-sm"><i class="fa-solid fa-cloud-arrow-up"></i> Upload CSV Data</a>
+  </div>
+</div>
+
+{# ── Global Filters Bar ── #}
+<div class="card mb-20" style="padding:12px 20px; border-color:rgba(0,204,204,.2); background:rgba(0,204,204,.02);">
+  <form id="filterForm" method="GET" action="{{ url_for('admin.dashboard') }}" style="display:flex; align-items:center; gap:20px; flex-wrap:wrap;">
+    <div style="display:flex; align-items:center; gap:10px;">
+      <span class="text-dim text-sm" style="font-weight:600; color:var(--accent);"><i class="fa-solid fa-filter"></i> DASHBOARD FILTERS:</span>
+    </div>
+    
+    <div style="display:flex; align-items:center; gap:10px;">
+      <label class="text-xs text-dim" style="text-transform:uppercase; letter-spacing:1px;">Branch</label>
+      <select name="branch" class="f-control f-control-sm" style="width:180px; border-color:rgba(0,204,204,.3);" onchange="this.form.submit()">
+        <option value="">All Departments</option>
+        {% for bcode, bname in branches %}
+        <option value="{{ bcode }}" {% if sel_branch == bcode %}selected{% endif %}>{{ bname }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <div style="display:flex; align-items:center; gap:10px;">
+      <label class="text-xs text-dim" style="text-transform:uppercase; letter-spacing:1px;">Semester</label>
+      <select name="semester" class="f-control f-control-sm" style="width:140px; border-color:rgba(0,204,204,.3);" onchange="this.form.submit()">
+        <option value="">All Semesters</option>
+        {% for s in range(1, 9) %}
+        <option value="{{ s }}" {% if sel_sem|string == s|string %}selected{% endif %}>Semester {{ s }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    {% if sel_branch or sel_sem %}
+    <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline btn-sm" style="color:var(--red); border-color:rgba(239,68,68,.3); padding:4px 12px;">
+      <i class="fa-solid fa-filter-circle-xmark"></i> Reset All
+    </a>
+    {% endif %}
+
+    <div style="margin-left:auto; display:flex; align-items:center; gap:10px;">
+      <span class="text-xs text-dim">Showing {{ total }} students</span>
+    </div>
+  </form>
+</div>
+
+<div class="stats-row">
+  <div class="stat-card sc-blue">  <div class="s-icon"><i class="fa-solid fa-users"></i></div><div class="s-label">Total Students</div><div class="s-val" data-count="{{ total }}">{{ total }}</div></div>
+  <div class="stat-card sc-green"> <div class="s-icon"><i class="fa-solid fa-circle-check"></i></div><div class="s-label">Passing</div>       <div class="s-val" data-count="{{ passing }}">{{ passing }}</div></div>
+  <div class="stat-card sc-red">   <div class="s-icon"><i class="fa-solid fa-circle-xmark"></i></div><div class="s-label">Failing</div>       <div class="s-val" data-count="{{ failing }}">{{ failing }}</div></div>
+  <div class="stat-card sc-yellow"><div class="s-icon"><i class="fa-solid fa-triangle-exclamation"></i></div><div class="s-label">At Risk</div>       <div class="s-val" data-count="{{ at_risk }}">{{ at_risk }}</div></div>
+  <div class="stat-card sc-cyan">  <div class="s-icon"><i class="fa-solid fa-bullseye"></i></div><div class="s-label">Avg CGPA</div>      <div class="s-val">{{ "%.2f"|format(avg_cgpa) }}</div></div>
+  <div class="stat-card sc-purple"><div class="s-icon"><i class="fa-solid fa-chalkboard-user"></i></div><div class="s-label">Teachers</div>   <div class="s-val" data-count="{{ teachers|length }}">{{ teachers|length }}</div></div>
+</div>
+
+<div class="grid-2 mb-20">
+  <div class="card">
+    <div class="card-hdr"><div class="card-title"><i class="fa-solid fa-chart-pie"></i> Branch Distribution</div></div>
+    <div class="chart-wrap"><canvas id="branchChart"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-hdr"><div class="card-title"><i class="fa-solid fa-chart-column"></i> Pass / Fail Overview</div></div>
+    <div class="chart-wrap"><canvas id="pfChart"></canvas></div>
+  </div>
+</div>
+
+{# ── Teachers Section ────────────────────────────────────────────── #}
+{% if teachers %}
+<div class="card mb-20">
+  <div class="card-hdr" style="margin-bottom:16px;">
+    <div class="card-title">
+      <div class="card-title-icon" style="background:rgba(168,85,247,.1);color:#a855f7;"><i class="fa-solid fa-chalkboard-user"></i></div>
+      Teaching Staff
+      <span class="text-dim text-sm">({{ teachers|length }})</span>
+    </div>
+    <a href="{{ url_for('admin.teachers') }}" class="btn btn-outline btn-sm">Manage Teachers →</a>
+  </div>
+  <div class="teacher-grid">
+    {% for t in teachers %}
+    <div class="teacher-card">
+      <div class="tc-avatar">
+        {% if t.profile_photo %}
+        <img src="{{ t.profile_photo }}" alt="{{ t.full_name or t.username }}">
+        {% else %}
+        {{ (t.full_name or t.username)[0].upper() }}
+        {% endif %}
+      </div>
+      <div style="min-width:0;">
+        <div class="tc-name">{{ (t.full_name or t.username)|truncate(22,true,'…') }}</div>
+        <div class="tc-dept">{{ t.department or 'No dept.' }}</div>
+        {% if t.email %}<div class="tc-email">{{ t.email }}</div>{% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+{# ── Students Table ────────────────────────────────────────────────── #}
+<div class="card">
+  <div class="card-hdr">
+    <div class="card-title">
+      <i class="fa-solid fa-users"></i> Student Records
+      <span class="text-dim text-sm">({{ students|length }})</span>
+    </div>
+    <div class="search-wrap">
+      <span class="search-icon"><i class="fa-solid fa-magnifying-glass"></i></span>
+      <input type="text" placeholder="Quick search table..." class="f-control f-control-sm"
+             style="width:220px;" oninput="filterTable(this,'studTbl')"/>
+    </div>
+  </div>
+  {% if students %}
+  <div class="table-wrap">
+  <table class="spas-table" id="studTbl">
+    <thead>
+      <tr><th>#</th><th>Student</th><th>Enrollment</th><th>Branch / Sem</th><th>CGPA</th><th>Attendance</th><th>Result</th></tr>
+    </thead>
+    <tbody>
+    {% for s in students %}
+    <tr>
+      <td class="mono text-xs text-dim">{{ loop.index }}</td>
+      <td>
+        <div class="stu-cell">
+          <div class="stu-av">
+            {% if s.profile_photo %}
+            <img src="{{ s.profile_photo }}" alt="{{ s.name }}">
+            {% else %}
+            {{ s.name[0] }}
+            {% endif %}
+          </div>
+          <div class="stu-name">{{ s.name }}</div>
+        </div>
+      </td>
+      <td><span class="mono text-blue text-sm">{{ s.enrollment_no }}</span></td>
+      <td class="text-sm">{{ s.branch[:22] }}<br><span class="mono text-dim text-xs">Sem {{ s.current_semester }}</span></td>
+      <td>
+        {% set cgpa = s.cgpa or 0 %}
+        <strong class="mono {% if cgpa>=8 %}text-green{% elif cgpa>=6 %}text-blue{% elif cgpa>=5 %}text-yellow{% else %}text-red{% endif %}">{{ '%.2f'|format(cgpa) }}</strong>
+      </td>
+      <td>
+        <div class="text-sm">{{ '%.0f'|format(s.attendance or 0) }}%</div>
+        <div class="progress-bar" style="width:60px;"><div class="progress-fill"
+          data-width="{{ [s.attendance or 0, 100]|min }}%"
+          style="width:0;background:{% if (s.attendance or 0)>=75 %}#10b981{% elif (s.attendance or 0)>=60 %}#f59e0b{% else %}#ef4444{% endif %};"></div></div>
+      </td>
+      <td><span class="badge {% if s.result == 'PASS' %}badge-green{% else %}badge-red{% endif %}">{{ s.result or '—' }}</span></td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-state-icon"><i class="fa-solid fa-inbox"></i></div>
+    <h3>No students yet</h3>
+    <p>Upload a CSV file to import student data, or approve pending student registrations.</p>
+    <a href="{{ url_for('upload.upload_page') }}" class="btn btn-primary" style="margin-top:12px;"><i class="fa-solid fa-cloud-arrow-up"></i> Upload CSV Data</a>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+Chart.defaults.color = '#8b949e';
+Chart.defaults.font.family = "'JetBrains Mono', monospace";
+Chart.defaults.font.size = 11;
+
+// FIX: Filter out blank/null keys that appear when students have no branch set
+const bdRaw = {{ branch_dist | tojson }};
+const bd = Object.fromEntries(Object.entries(bdRaw).filter(([k]) => k && k.trim() !== ''));
+
+if (Object.keys(bd).length > 0) {
+  new Chart(document.getElementById('branchChart'), {
+    type: 'doughnut',
+    data: { labels: Object.keys(bd), datasets: [{ data: Object.values(bd),
+      backgroundColor: ['#3b82f6','#10b981','#f59e0b','#a855f7','#ef4444','#06b6d4','#f97316','#ec4899'],
+      borderWidth:0, hoverOffset:5 }] },
+    options: { responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{ position:'right', labels:{ color:'#8b949e',boxWidth:12,padding:12,font:{size:11} } } } }
+  });
+} else {
+  const el = document.getElementById('branchChart');
+  if (el) el.closest('.chart-wrap').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#484f58;font-size:.8rem;">No branch data yet</div>';
+}
+
+const passing = {{ passing|default(0) }};
+const failing = {{ failing|default(0) }};
+const atRisk  = {{ at_risk|default(0) }};
+if (passing + failing + atRisk > 0) {
+  new Chart(document.getElementById('pfChart'), {
+    type: 'bar',
+    data: {
+      labels:['Passing','Failing','At Risk'],
+      datasets:[{ data:[passing, failing, atRisk],
+        backgroundColor:['rgba(16,185,129,.75)','rgba(239,68,68,.75)','rgba(245,158,11,.75)'],
+        borderRadius:6, borderWidth:0 }]
+    },
+    options:{ responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false},
+        tooltip:{ callbacks:{ label: ctx => ` ${ctx.label}: ${ctx.raw} students` } }
+      },
+      scales:{ y:{grid:{color:'rgba(255,255,255,.04)'},ticks:{color:'#8b949e'},beginAtZero:true},
+               x:{grid:{display:false},ticks:{color:'#8b949e'}} } }
+  });
+} else {
+  const el = document.getElementById('pfChart');
+  if (el) el.closest('.chart-wrap').innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100%;color:#484f58;font-size:.8rem;">No result data yet</div>';
+}
+</script>
+{% endblock %}

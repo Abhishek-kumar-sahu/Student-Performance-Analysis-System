@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Edit' if college else 'Add' }} College{% endblock %}
+{% block page_title %}// {{ '✏️ Edit' if college else '➕ Add' }} College{% endblock %}
+{% block content %}
+<div class="card" style="max-width:560px;">
+  <div class="sec-title" style="margin-bottom:20px;">College Details</div>
+  <form method="POST">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="f-group">
+      <label class="f-label">College Name *</label>
+      <input class="f-control" name="name" value="{{ college.name if college else '' }}" placeholder="e.g. Techno College of Engineering" required/>
+    </div>
+    {% if not college %}
+    <div class="f-group">
+      <label class="f-label">College Code *</label>
+      <input class="f-control" name="college_code" value="" placeholder="e.g. 0115" required/>
+    </div>
+    {% endif %}
+    <div class="reg-grid-2" style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+      <div class="f-group">
+        <label class="f-label">City</label>
+        <input class="f-control" name="city" value="{{ college.city if college else '' }}" placeholder="Bhopal"/>
+      </div>
+      <div class="f-group">
+        <label class="f-label">State</label>
+        <input class="f-control" name="state" value="{{ college.state if college else 'Madhya Pradesh' }}" placeholder="Madhya Pradesh"/>
+      </div>
+    </div>
+    <div class="f-group">
+      <label class="f-label">Contact Email</label>
+      <input class="f-control" type="email" name="contact_email" value="{{ college.contact_email if college else '' }}" placeholder="admin@college.edu"/>
+    </div>
+    <div class="d-flex gap-12 mt-16">
+      <button type="submit" class="btn-cyan">{{ 'Update College' if college else 'Create College' }}</button>
+      <a href="{{ url_for('super_admin.dashboard') }}" class="btn-ghost">Cancel</a>
+    </div>
+  </form>
+</div>
+{% endblock %}

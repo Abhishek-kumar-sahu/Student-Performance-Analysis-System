@@ -1,0 +1,235 @@
+{% extends 'base.html' %}
+{% block title %}Digital Twin{% endblock %}
+{% block page_title %}// Academic Digital Twin{% endblock %}
+{% block content %}
+
+<div class="profile-banner mb-24">
+  <div class="profile-avatar">{{ student.name[0] }}</div>
+  <div class="profile-info">
+    <div class="profile-name">{{ student.name }}</div>
+    <div class="profile-enr">{{ student.enrollment_no }}</div>
+    <div class="profile-meta">
+      <span>🎓 {{ student.programme }} — {{ student.branch }}</span>
+      <span>📚 Semester {{ student.current_semester }}</span>
+    </div>
+  </div>
+  <div style="flex-shrink:0;">
+    <span class="badge badge-blue" style="font-size:.75rem;padding:6px 14px;">🔬 What-If Simulator</span>
+  </div>
+</div>
+
+<div class="grid-2 mb-20">
+  {# Live Preview Sliders #}
+  <div class="card" style="border-color:rgba(0,255,255,0.25);">
+    <div class="card-hdr" style="margin-bottom:18px;">
+      <div class="card-title">
+        <div class="card-title-icon" style="background:rgba(0,255,255,0.1);color:var(--accent);">🎛️</div>
+        Live What-If Simulator
+      </div>
+      <span class="text-dim text-xs">Drag sliders — preview updates instantly</span>
+    </div>
+
+    <div class="f-group">
+      <label class="f-label">Attendance: <span id="attVal" style="color:var(--accent);">{{ "%.0f"|format(base_data.avg_attendance or 75) }}%</span></label>
+      <input type="range" id="attSlider" min="0" max="100" value="{{ "%.0f"|format(base_data.avg_attendance or 75) }}"
+        oninput="document.getElementById('attVal').textContent=this.value+'%';livePreview()"
+        style="width:100%;accent-color:var(--accent);cursor:pointer;height:6px;margin-top:6px;"/>
+      <div style="display:flex;justify-content:space-between;font-size:.65rem;color:var(--text-xs);margin-top:3px;"><span>0%</span><span style="color:var(--yellow);">75%</span><span>100%</span></div>
+    </div>
+
+    <div class="f-group">
+      <label class="f-label">Average Marks: <span id="marksVal" style="color:var(--accent);">{{ "%.0f"|format(base_data.avg_marks or 60) }}%</span></label>
+      <input type="range" id="marksSlider" min="0" max="100" value="{{ "%.0f"|format(base_data.avg_marks or 60) }}"
+        oninput="document.getElementById('marksVal').textContent=this.value+'%';livePreview()"
+        style="width:100%;accent-color:var(--accent);cursor:pointer;height:6px;margin-top:6px;"/>
+      <div style="display:flex;justify-content:space-between;font-size:.65rem;color:var(--text-xs);margin-top:3px;"><span>0%</span><span style="color:var(--yellow);">40%</span><span>100%</span></div>
+    </div>
+
+    <div class="f-group">
+      <label class="f-label">Failed Subjects: <span id="failedVal" style="color:var(--accent);">{{ base_data.failed_subjects or 0 }}</span></label>
+      <input type="range" id="failedSlider" min="0" max="10" value="{{ base_data.failed_subjects or 0 }}"
+        oninput="document.getElementById('failedVal').textContent=this.value;livePreview()"
+        style="width:100%;accent-color:var(--red);cursor:pointer;height:6px;margin-top:6px;"/>
+    </div>
+
+    <div id="liveResult" style="margin-top:16px;padding:16px;background:rgba(0,0,0,0.35);border:1px solid var(--border);border-radius:10px;min-height:60px;text-align:center;font-size:.85rem;color:var(--text-dim);">
+      ⏳ Adjust sliders to see prediction…
+    </div>
+  </div>
+
+  {# Baseline #}
+  <div class="card">
+    <div class="card-hdr" style="margin-bottom:14px;">
+      <div class="card-title">
+        <div class="card-title-icon" style="background:rgba(88,166,255,0.1);color:var(--blue);">📌</div>
+        Your Current Baseline
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      {% set base_items = [
+        ("Avg Attendance", "%.1f%%"|format(base_data.avg_attendance or 0), "📅", "#00ffff"),
+        ("Avg Marks",      "%.1f%%"|format(base_data.avg_marks or 0),      "📊", "#58a6ff"),
+        ("Failed Subjects","base_data.failed_subjects or 0",                "⚠️", "#ff4d4d"),
+        ("Current Sem",    "base_data.current_semester or student.current_semester", "📚", "#a855f7"),
+      ] %}
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+        <div style="background:rgba(0,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;">
+          <div style="font-size:.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">📅 Attendance</div>
+          <div style="font-size:1.5rem;font-weight:800;color:var(--accent);text-shadow:0 0 10px var(--glow);">{{ "%.1f"|format(base_data.avg_attendance or 0) }}%</div>
+        </div>
+        <div style="background:rgba(88,166,255,0.04);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;">
+          <div style="font-size:.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">📊 Avg Marks</div>
+          <div style="font-size:1.5rem;font-weight:800;color:var(--blue);">{{ "%.1f"|format(base_data.avg_marks or 0) }}%</div>
+        </div>
+        <div style="background:rgba(255,77,77,.04);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;">
+          <div style="font-size:.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">⚠️ Failed</div>
+          <div style="font-size:1.5rem;font-weight:800;color:var(--red);">{{ base_data.failed_subjects or 0 }}</div>
+        </div>
+        <div style="background:rgba(168,85,247,.04);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;">
+          <div style="font-size:.65rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">📚 Semester</div>
+          <div style="font-size:1.5rem;font-weight:800;color:var(--purple);">{{ base_data.current_semester or student.current_semester }}</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# Full simulation form & result #}
+<div class="card mb-20">
+  <div class="card-hdr" style="margin-bottom:18px;">
+    <div class="card-title">
+      <div class="card-title-icon" style="background:rgba(0,255,153,0.1);color:var(--green);">🔬</div>
+      Run Full Scenario Simulation
+    </div>
+  </div>
+  <form method="POST" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px;align-items:end;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="f-group" style="margin-bottom:0;">
+      <label class="f-label">Scenario Attendance (%)</label>
+      <input type="number" name="scenario_attendance" class="f-control" min="0" max="100" step="0.1"
+        value="{{ twin_result.scenario.avg_attendance if twin_result else '%.0f'|format(base_data.avg_attendance or 75) }}"/>
+    </div>
+    <div class="f-group" style="margin-bottom:0;">
+      <label class="f-label">Scenario Marks (%)</label>
+      <input type="number" name="scenario_marks" class="f-control" min="0" max="100" step="0.1"
+        value="{{ twin_result.scenario.avg_marks if twin_result else '%.0f'|format(base_data.avg_marks or 60) }}"/>
+    </div>
+    <div class="f-group" style="margin-bottom:0;">
+      <label class="f-label">Scenario Failed Subjects</label>
+      <input type="number" name="scenario_failed" class="f-control" min="0" max="20" step="1"
+        value="{{ twin_result.scenario.failed_subjects if twin_result else (base_data.failed_subjects or 0) }}"/>
+    </div>
+    <button type="submit" class="btn btn-primary ripple-btn">🚀 Run Simulation</button>
+  </form>
+</div>
+
+{% if twin_result %}
+<div class="card" style="border-color:{% if twin_result.verdict=='HIGHLY_BENEFICIAL' %}rgba(0,255,153,.35){% elif twin_result.verdict=='BENEFICIAL' %}rgba(0,255,255,.3){% elif twin_result.verdict=='NEUTRAL' %}rgba(255,204,0,.3){% else %}rgba(255,77,77,.3){% endif %};">
+  <div class="card-hdr" style="margin-bottom:20px;">
+    <div class="card-title">
+      <div class="card-title-icon" style="background:rgba(0,255,255,0.1);color:var(--accent);">📊</div>
+      Simulation Results
+    </div>
+    <span class="badge {% if twin_result.verdict=='HIGHLY_BENEFICIAL' %}badge-green{% elif twin_result.verdict=='BENEFICIAL' %}badge-blue{% elif twin_result.verdict=='NEUTRAL' %}badge-yellow{% else %}badge-red{% endif %}" style="font-size:.75rem;padding:5px 12px;">
+      {{ twin_result.verdict.replace('_',' ') }}
+    </span>
+  </div>
+
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+    {# Baseline vs Scenario #}
+    <div>
+      <div class="sec-title" style="margin-bottom:12px;">Baseline vs Scenario</div>
+      {% set comparisons = [
+        ("Predicted GPA",twin_result.baseline_gpa,twin_result.scenario_gpa,"gpa"),
+        ("Attendance",twin_result.scenario.avg_attendance,twin_result.baseline.avg_attendance,"att"),
+        ("Marks",twin_result.scenario.avg_marks,twin_result.baseline.avg_marks,"marks"),
+      ] %}
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+          <div style="background:rgba(0,0,0,.3);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;">
+            <div style="font-size:.65rem;color:var(--text-dim);text-transform:uppercase;margin-bottom:4px;">📌 Baseline GPA</div>
+            <div style="font-size:1.6rem;font-weight:800;color:var(--blue);text-shadow:0 0 8px rgba(88,166,255,.4);">{{ twin_result.baseline_gpa }}</div>
+          </div>
+          <div style="background:rgba(0,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:14px;text-align:center;">
+            <div style="font-size:.65rem;color:var(--text-dim);text-transform:uppercase;margin-bottom:4px;">🔬 Scenario GPA</div>
+            <div style="font-size:1.6rem;font-weight:800;color:var(--accent);text-shadow:0 0 8px var(--glow);">{{ twin_result.scenario_gpa }}</div>
+          </div>
+        </div>
+        {% set diff = twin_result.scenario_gpa - twin_result.baseline_gpa %}
+        <div style="text-align:center;padding:12px;background:rgba(0,0,0,.25);border-radius:8px;border:1px solid var(--border);">
+          <span style="font-size:.8rem;color:var(--text-dim);">GPA Change: </span>
+          <span style="font-size:1.1rem;font-weight:700;color:{% if diff > 0 %}var(--green){% elif diff < 0 %}var(--red){% else %}var(--text-dim){% endif %};">
+            {{ '+' if diff > 0 else '' }}{{ "%.2f"|format(diff) }}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    {# Insights & changes #}
+    <div>
+      <div class="sec-title" style="margin-bottom:12px;">Scenario Insights</div>
+      <div style="display:flex;flex-direction:column;gap:8px;">
+        {% for change in twin_result.get('changes',[]) %}
+        <div style="background:rgba(0,255,255,0.03);border:1px solid var(--border);border-left:3px solid {% if change.direction=='up' %}var(--green){% elif change.direction=='down' %}var(--red){% else %}var(--text-dim){% endif %};padding:10px 14px;border-radius:0 8px 8px 0;font-size:.8rem;color:var(--text);">
+          {% if change.direction=='up' %}📈{% elif change.direction=='down' %}📉{% else %}➡️{% endif %} {{ change.message }}
+        </div>
+        {% else %}
+        <div style="font-size:.8rem;color:var(--text-dim);padding:12px;background:rgba(0,0,0,.2);border-radius:8px;">No significant changes detected.</div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+{% block scripts %}
+<script>
+let _debTimer;
+function livePreview(){
+  clearTimeout(_debTimer);
+  _debTimer=setTimeout(async()=>{
+    const attEl=document.getElementById('attSlider');
+    const marksEl=document.getElementById('marksSlider');
+    const failedEl=document.getElementById('failedSlider');
+    const box=document.getElementById('liveResult');
+    if(!attEl||!marksEl||!failedEl||!box)return;
+    const att=parseFloat(attEl.value);
+    const marks=parseFloat(marksEl.value);
+    const failed=parseInt(failedEl.value);
+    if(isNaN(att)||isNaN(marks)||isNaN(failed))return;
+    box.innerHTML='<span style="color:var(--text-dim);">⏳ Computing…</span>';
+    try{
+      const r=await fetch('/student/digital-twin/api',{
+        method:'POST',headers:{'Content-Type':'application/json','X-CSRF-Token':document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')||''},
+        body:JSON.stringify({attendance:att,marks:marks,failed:failed})
+      });
+      function escHtml(s){
+        if(s===null||s===undefined)return'';
+        return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+      }
+      const d=await r.json();
+      const vColors={'HIGHLY_BENEFICIAL':'var(--green)','BENEFICIAL':'var(--accent)','NEUTRAL':'var(--yellow)','HARMFUL':'var(--red)'};
+      const col=vColors[d.verdict]||'var(--text-dim)';
+      const safeVerdict = escHtml((d.verdict||'').replace(/_/g,' '));
+      const gpa = parseFloat(d.scenario_gpa)||0;
+      const base = parseFloat(d.baseline_gpa)||0;
+      const delta = (gpa - base).toFixed(2);
+      const sign = gpa - base >= 0 ? '+' : '';
+      box.innerHTML=`
+        <div style="font-size:.75rem;color:var(--text-dim);margin-bottom:6px;">Scenario Prediction</div>
+        <div style="font-size:1.4rem;font-weight:800;color:var(--accent);">GPA: ${gpa.toFixed(2)}</div>
+        <div style="margin-top:4px;font-size:.85rem;font-weight:700;color:${col};">${safeVerdict}</div>
+        <div style="font-size:.72rem;color:var(--text-dim);margin-top:4px;">Baseline: ${base.toFixed(2)} → Δ ${sign}${delta}</div>
+      `;
+    }catch(e){
+      box.innerHTML='<span style="color:var(--red);">Error loading preview</span>';
+    }
+  },300);
+}
+// Only trigger initial preview if sliders are present on page
+document.addEventListener('DOMContentLoaded', function(){
+  if(document.getElementById('attSlider')) livePreview();
+});
+</script>
+{% endblock %}

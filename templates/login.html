@@ -1,0 +1,298 @@
+{% extends 'base.html' %}
+{% block title %}Sign In — SPAS{% endblock %}
+{% block full_page %}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+/* ── PAGE BG ── */
+.lp-root{
+  position:fixed;inset:0;
+  background:#000d1a;
+  display:flex;align-items:center;justify-content:center;
+  overflow:hidden;
+}
+
+/* ── MATRIX CANVAS ── */
+#lpCanvas{position:absolute;inset:0;opacity:.14}
+
+/* ── RADIAL GLOW ── */
+.lp-glow{
+  position:absolute;inset:0;
+  background:
+    radial-gradient(ellipse 55% 55% at 50% 50%, rgba(0,255,200,.07) 0%, transparent 70%),
+    radial-gradient(ellipse 30% 40% at 15% 85%, rgba(0,100,255,.05) 0%, transparent 60%);
+  animation:glowBreath 5s ease-in-out infinite alternate;
+}
+@keyframes glowBreath{from{opacity:.7}to{opacity:1}}
+
+/* ── GRID ── */
+.lp-grid{
+  position:absolute;inset:0;
+  background-image:
+    linear-gradient(rgba(0,255,200,.035) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(0,255,200,.035) 1px,transparent 1px);
+  background-size:50px 50px;
+  animation:gridMove 28s linear infinite;
+}
+@keyframes gridMove{to{background-position:50px 50px}}
+
+/* ── SCAN ── */
+.lp-scan{
+  position:absolute;left:0;right:0;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(0,255,200,.5),transparent);
+  animation:scan 6s ease-in-out infinite;pointer-events:none;
+}
+@keyframes scan{0%{top:-1px;opacity:0}5%{opacity:1}95%{opacity:.5}100%{top:100%;opacity:0}}
+
+/* ── CORNERS ── */
+.lp-corn{position:absolute;width:44px;height:44px;opacity:.45}
+.lp-corn.tl{top:18px;left:18px;border-top:2px solid rgba(0,255,200,.7);border-left:2px solid rgba(0,255,200,.7)}
+.lp-corn.tr{top:18px;right:18px;border-top:2px solid rgba(0,255,200,.7);border-right:2px solid rgba(0,255,200,.7)}
+.lp-corn.bl{bottom:18px;left:18px;border-bottom:2px solid rgba(0,255,200,.7);border-left:2px solid rgba(0,255,200,.7)}
+.lp-corn.br{bottom:18px;right:18px;border-bottom:2px solid rgba(0,255,200,.7);border-right:2px solid rgba(0,255,200,.7)}
+
+/* ── CARD ── */
+.lp-card{
+  position:relative;z-index:20;
+  background:rgba(0,15,30,.75);
+  border:1px solid rgba(0,255,200,.2);
+  border-radius:18px;
+  padding:36px 32px;
+  width:100%;max-width:400px;
+  backdrop-filter:blur(16px);
+  box-shadow:0 0 60px rgba(0,255,200,.1),0 0 120px rgba(0,255,200,.04),inset 0 0 40px rgba(0,255,200,.02);
+  animation:cardIn 1s cubic-bezier(.16,1,.3,1) forwards;
+  opacity:0;transform:translateY(24px) scale(.98);
+}
+@keyframes cardIn{to{opacity:1;transform:translateY(0) scale(1)}}
+
+/* glow line top of card */
+.lp-card::before{
+  content:'';position:absolute;top:0;left:10%;right:10%;height:1px;
+  background:linear-gradient(90deg,transparent,rgba(0,255,200,.5),transparent);
+  border-radius:50%;
+}
+
+/* ── BRAND ── */
+.lp-brand{text-align:center;margin-bottom:24px}
+.lp-logo-ring{
+  display:inline-flex;align-items:center;justify-content:center;
+  width:56px;height:56px;
+  background:linear-gradient(135deg,rgba(0,255,200,.10),rgba(0,100,255,.06));
+  border:1.5px solid rgba(0,255,200,.35);
+  border-radius:14px;margin-bottom:10px;overflow:hidden;
+  box-shadow:0 0 24px rgba(0,255,200,.18),inset 0 0 16px rgba(0,255,200,.04);
+  animation:logoGlow 3s ease-in-out infinite;
+}
+.lp-logo-ring img{width:40px;height:40px;object-fit:contain;filter:drop-shadow(0 0 8px rgba(0,255,200,.55));}
+@keyframes logoGlow{0%,100%{box-shadow:0 0 20px rgba(0,255,200,.2)}50%{box-shadow:0 0 40px rgba(0,255,200,.45)}}
+.lp-title{font-family:'Orbitron',sans-serif;font-size:1.35rem;font-weight:900;color:#fff;letter-spacing:.1em;text-shadow:0 0 20px rgba(0,255,200,.4)}
+.lp-title span{color:#00ffc8}
+.lp-sub{font-family:'Share Tech Mono',monospace;font-size:.62rem;color:rgba(0,255,200,.5);letter-spacing:.2em;margin-top:5px}
+
+/* ── FLASH MESSAGES ── */
+.lp-flash{padding:10px 14px;border-radius:8px;font-size:.78rem;margin-bottom:14px;border:1px solid transparent;font-family:'Share Tech Mono',monospace}
+.lp-flash.success,.lp-flash.info{background:rgba(0,255,200,.06);border-color:rgba(0,255,200,.25);color:#00ffc8}
+.lp-flash.danger,.lp-flash.error{background:rgba(255,60,60,.07);border-color:rgba(255,60,60,.3);color:#ff6b6b}
+.lp-flash.warning{background:rgba(255,200,0,.06);border-color:rgba(255,200,0,.25);color:#ffd700}
+
+/* ── FORM ── */
+.lp-label{
+  display:block;font-size:.7rem;font-family:'Share Tech Mono',monospace;
+  color:rgba(0,255,200,.6);letter-spacing:.12em;text-transform:uppercase;
+  margin-bottom:7px;
+}
+.lp-input{
+  width:100%;background:rgba(0,0,0,.4);
+  border:1px solid rgba(0,255,200,.2);
+  border-radius:8px;color:#e0f8ff;
+  padding:11px 14px;font-size:.88rem;
+  font-family:'Share Tech Mono',monospace;
+  transition:border-color .25s,box-shadow .25s;
+  outline:none;
+}
+.lp-input:focus{border-color:rgba(0,255,200,.6);box-shadow:0 0 0 3px rgba(0,255,200,.1)}
+.lp-input::placeholder{color:rgba(255,255,255,.2)}
+.lp-input option{background:#001020;color:#e0f8ff}
+
+/* ── SELECT WRAPPER ── */
+.lp-sel-wrap{position:relative}
+.lp-sel-wrap::after{content:"▾";position:absolute;right:12px;top:50%;transform:translateY(-50%);color:rgba(0,255,200,.6);pointer-events:none;font-size:.75rem}
+.lp-sel-wrap select{appearance:none;-webkit-appearance:none;cursor:pointer;padding-right:36px}
+
+/* ── ROLE HINT ── */
+.lp-hint{font-size:.66rem;font-family:'Share Tech Mono',monospace;color:rgba(0,255,200,.4);margin-top:5px;min-height:14px;letter-spacing:.05em;transition:all .2s}
+
+/* ── PASSWORD FIELD ── */
+.lp-pwd-wrap{position:relative}
+.lp-pwd-wrap .lp-input{padding-right:44px}
+.lp-eye{position:absolute;right:10px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;color:rgba(0,255,200,.4);font-size:.9rem;padding:4px;transition:color .2s}
+.lp-eye:hover{color:rgba(0,255,200,.8)}
+
+/* ── SUBMIT BUTTON ── */
+.lp-submit{
+  width:100%;padding:13px;border:none;border-radius:10px;cursor:pointer;
+  background:linear-gradient(135deg,rgba(0,255,200,.2),rgba(0,100,255,.12));
+  border:1.5px solid rgba(0,255,200,.5);
+  color:#00ffc8;
+  font-family:'Orbitron',sans-serif;font-size:.82rem;font-weight:700;letter-spacing:.1em;
+  transition:all .3s cubic-bezier(.34,1.56,.64,1);
+  box-shadow:0 0 20px rgba(0,255,200,.15),inset 0 0 16px rgba(0,255,200,.03);
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  margin-top:6px;
+}
+.lp-submit:hover{
+  background:linear-gradient(135deg,rgba(0,255,200,.3),rgba(0,100,255,.2));
+  box-shadow:0 0 40px rgba(0,255,200,.4),inset 0 0 24px rgba(0,255,200,.07);
+  transform:translateY(-2px);
+  border-color:rgba(0,255,200,.85);
+}
+.lp-submit:active{transform:translateY(0)}
+
+/* ── LINKS ── */
+.lp-links{margin-top:18px;text-align:center;font-size:.72rem;font-family:'Share Tech Mono',monospace;color:rgba(255,255,255,.3);display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+.lp-links a{color:rgba(0,255,200,.65);text-decoration:none;transition:color .2s}
+.lp-links a:hover{color:#00ffc8}
+.lp-links span{color:rgba(255,255,255,.12)}
+
+/* ── F-GROUP ── */
+.lp-group{margin-bottom:16px}
+</style>
+
+<div class="lp-root">
+  <canvas id="lpCanvas"></canvas>
+  <div class="lp-glow"></div>
+  <div class="lp-grid"></div>
+  <div class="lp-scan"></div>
+  <div class="lp-corn tl"></div>
+  <div class="lp-corn tr"></div>
+  <div class="lp-corn bl"></div>
+  <div class="lp-corn br"></div>
+
+  <div class="lp-card">
+
+    <!-- Brand -->
+    <div class="lp-brand">
+      <div><div class="lp-logo-ring"><img src="{{ url_for('static', filename='images/SPAS_logo.png') }}" alt="SPAS Logo"></div></div>
+      <div class="lp-title">SP<span>AS</span></div>
+      <div class="lp-sub">Student Performance Analysis System</div>
+    </div>
+
+    <!-- Flash messages -->
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% if msgs %}{% for cat,msg in msgs %}
+    <div class="lp-flash {{ cat }}">{{ msg }}</div>
+    {% endfor %}{% endif %}
+    {% endwith %}
+
+    <form method="POST" action="{{ url_for('auth.login') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+      <!-- Role selector -->
+      <div class="lp-group">
+        <label class="lp-label">Login As</label>
+        <div class="lp-sel-wrap">
+          <select name="role" id="roleSelect" class="lp-input" onchange="onRole(this.value)">
+            <option value="">— Select your role —</option>
+            <option value="student"     {% if request.form.get('role')=='student'     %}selected{% endif %}>Student Account</option>
+            <option value="teacher"     {% if request.form.get('role')=='teacher'     %}selected{% endif %}>Teacher / Faculty</option>
+            <option value="admin"       {% if request.form.get('role')=='admin'       %}selected{% endif %}>College Admin</option>
+            <option value="super_admin" {% if request.form.get('role')=='super_admin' %}selected{% endif %}>Platform Admin</option>
+          </select>
+        </div>
+        <div class="lp-hint" id="roleHint"></div>
+      </div>
+
+      <!-- Username -->
+      <div class="lp-group">
+        <label class="lp-label" id="unLabel"><i class="fa-solid fa-user"></i> Username</label>
+        <input type="text" name="username" id="unField" class="lp-input"
+               placeholder="Enter your username" required autofocus
+               value="{{ request.form.get('username','') }}"/>
+      </div>
+
+      <!-- Password -->
+      <div class="lp-group">
+        <label class="lp-label"><i class="fa-solid fa-key"></i> Password</label>
+        <div class="lp-pwd-wrap">
+          <input type="password" name="password" id="pwdField" class="lp-input"
+                 placeholder="Enter password" required/>
+          <button type="button" class="lp-eye" id="eyeBtn" onclick="togglePwd()"><i class="fa-solid fa-eye"></i></button>
+        </div>
+      </div>
+
+      <button type="submit" class="lp-submit">
+        <i class="fa-solid fa-right-to-bracket"></i> Sign In
+      </button>
+    </form>
+
+    <div class="lp-links">
+      <a href="{{ url_for('auth.forgot_password') }}">Forgot Password?</a>
+      <span>·</span>
+      <a href="{{ url_for('auth.register_page') }}" style="color:rgba(88,166,255,.7);">Register <i class="fa-solid fa-arrow-right"></i></a>
+      <span>·</span>
+      <a href="{{ url_for('auth.splash') }}" style="color:rgba(255,255,255,.25);">← Home</a>
+    </div>
+  </div>
+</div>
+
+<script>
+/* Matrix rain */
+(function(){
+  const c=document.getElementById('lpCanvas');
+  const ctx=c.getContext('2d');
+  let cols,drops;
+  const chars='ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789GPARISKATTSEM';
+  function init(){
+    c.width=window.innerWidth;c.height=window.innerHeight;
+    const fs=14;cols=Math.floor(c.width/fs);
+    drops=Array(cols).fill(1).map(()=>Math.random()*-c.height/fs);
+  }
+  function draw(){
+    ctx.fillStyle='rgba(0,13,26,0.06)';ctx.fillRect(0,0,c.width,c.height);
+    for(let i=0;i<cols;i++){
+      const ch=chars[Math.floor(Math.random()*chars.length)];
+      const x=i*14,y=drops[i]*14;
+      if(Math.random()>.96)ctx.fillStyle='rgba(255,255,255,.8)';
+      else{const b=Math.floor(Math.random()*80+40);ctx.fillStyle=`rgba(0,${b+80},${b},.8)`;}
+      ctx.font="14px 'Share Tech Mono',monospace";
+      ctx.fillText(ch,x,y);
+      if(y>c.height&&Math.random()>.975)drops[i]=0;
+      drops[i]+=0.45;
+    }
+  }
+  init();window.addEventListener('resize',init);setInterval(draw,55);
+})();
+
+/* Role hint */
+const HINTS={
+  student:'Use your enrollment number or assigned username',
+  teacher:'Use the teacher username from your college admin',
+  admin:'Use credentials provided by Super Admin after approval',
+  super_admin:'Super Administrator access only'
+};
+const PLACEHOLDERS={
+  student:'Enrollment No. or username',
+  teacher:'Teacher username',
+  admin:'Admin username',
+  super_admin:'superadmin'
+};
+function onRole(v){
+  document.getElementById('roleHint').textContent=HINTS[v]||'';
+  document.getElementById('unField').placeholder=PLACEHOLDERS[v]||'Enter username';
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  const v=document.getElementById('roleSelect').value;
+  if(v)onRole(v);
+});
+
+/* Toggle password */
+function togglePwd(){
+  const f=document.getElementById('pwdField');
+  const btn=document.getElementById('eyeBtn');
+  f.type=f.type==='password'?'text':'password';
+  btn.innerHTML=f.type==='password'?'<i class="fa-solid fa-eye"></i>':'<i class="fa-solid fa-eye-slash"></i>';
+}
+</script>
+{% endblock %}

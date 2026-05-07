@@ -1,0 +1,183 @@
+{% extends 'base.html' %}
+{% block title %}Student Registrations{% endblock %}
+{% block page_title %}// <i class="fa-solid fa-id-card"></i> Student Registration Requests{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Student Registration Requests</h1>
+    <p>Review and approve/reject student self-registration submissions for your college.</p>
+  </div>
+</div>
+
+{% set pending  = regs|selectattr('status','equalto','pending')|list %}
+{% set approved = regs|selectattr('status','equalto','approved')|list %}
+{% set rejected = regs|selectattr('status','equalto','rejected')|list %}
+
+<div class="stats-row mb-20" style="grid-template-columns:repeat(3,1fr);">
+  <div class="stat-card sc-yellow">
+    <div class="s-label">Pending</div>
+    <div class="s-val" data-count="{{ pending|length }}">{{ pending|length }}</div>
+    <div class="s-sub">awaiting review</div>
+  </div>
+  <div class="stat-card sc-green">
+    <div class="s-label">Approved</div>
+    <div class="s-val" data-count="{{ approved|length }}">{{ approved|length }}</div>
+    <div class="s-sub">accounts created</div>
+  </div>
+  <div class="stat-card sc-red">
+    <div class="s-label">Rejected</div>
+    <div class="s-val" data-count="{{ rejected|length }}">{{ rejected|length }}</div>
+    <div class="s-sub">declined</div>
+  </div>
+</div>
+
+{% if pending %}
+<div class="card mb-20" style="border-color:rgba(245,158,11,.2);background:rgba(245,158,11,.02);">
+  <div class="card-hdr">
+    <div class="card-title" style="color:#f59e0b;">
+      <div class="card-title-icon" style="background:rgba(245,158,11,.1);color:#f59e0b"><i class="fa-solid fa-hourglass-half"></i></div>
+      Pending Requests
+      <span class="badge badge-yellow">{{ pending|length }}</span>
+    </div>
+  </div>
+  {% for reg in pending %}
+  <div class="reg-item">
+    <div class="reg-item-info">
+      <div class="reg-item-name">
+        {{ reg.full_name }}
+        <span class="mono text-blue text-xs">{{ reg.enrollment_no }}</span>
+        {% if reg.registered_by == 'teacher' %}
+        <span class="badge badge-blue" style="font-size:.65rem;">Via Teacher</span>
+        {% endif %}
+      </div>
+      <div class="reg-item-meta">
+        {{ reg.branch }} &middot; Sem {{ reg.semester }} &middot;
+        {% if reg.email %}<span>{{ reg.email }}</span> &middot; {% endif %}
+        Submitted <strong>{{ reg.submitted_at[:10] }}</strong>
+      </div>
+    </div>
+    <div class="reg-item-actions">
+      <form method="POST" action="{{ url_for('admin.approve_student_reg', rid=reg.id) }}" id="approve-sreg-{{ reg.id }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="button" class="btn btn-success btn-xs ripple-btn"
+                onclick="spasConfirm('Approve <b>{{ reg.full_name }}</b>?<br><small>Login credentials will be emailed to the student.</small>', function(){ document.getElementById('approve-sreg-{{ reg.id }}').submit(); }, {icon:'<i class=\'fa-solid fa-check-double\'></i>',confirmText:'Approve',danger:false})">
+          <i class="fa-solid fa-check"></i> Approve
+        </button>
+      </form>
+      <button class="btn btn-danger btn-xs ripple-btn"
+              onclick="showAdminReject({{ reg.id }}, '{{ reg.full_name }}')">
+        <i class="fa-solid fa-xmark"></i> Reject
+      </button>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-hdr">
+    <div class="card-title">All Registration History</div>
+    {% if regs %}
+    <input type="text" class="f-control" style="max-width:200px;padding:5px 10px;font-size:.78rem;"
+           placeholder="Search…" oninput="filterTable(this, 'regHistTable')"/>
+    {% endif %}
+  </div>
+  {% if regs %}
+  <div class="table-wrap">
+  <table class="spas-table" id="regHistTable">
+    <thead>
+      <tr>
+        <th>Student</th><th>Enrollment</th><th>Branch / Sem</th>
+        <th>Email</th><th>Registered By</th><th>Date</th><th>Status</th><th>Action</th>
+      </tr>
+    </thead>
+    <tbody>
+    {% for reg in regs %}
+    <tr>
+      <td class="fw600">{{ reg.full_name }}</td>
+      <td class="mono text-blue text-sm">{{ reg.enrollment_no }}</td>
+      <td class="text-sm">
+        {{ reg.branch[:28] if reg.branch else '—' }}<br>
+        <span class="mono text-dim text-xs">Sem {{ reg.semester }}</span>
+      </td>
+      <td class="text-sm text-dim">{{ reg.email or '—' }}</td>
+      <td>
+        <span class="badge {% if reg.registered_by=='teacher' %}badge-blue{% else %}badge-dim{% endif %}">
+          {{ reg.registered_by|title if reg.registered_by else 'Self' }}
+        </span>
+      </td>
+      <td class="mono text-xs text-dim">{{ reg.submitted_at[:10] if reg.submitted_at else '—' }}</td>
+      <td>
+        <span class="badge {% if reg.status=='approved' %}badge-green{% elif reg.status=='rejected' %}badge-red{% else %}badge-yellow{% endif %}">
+          {{ reg.status|title }}
+        </span>
+      </td>
+      <td>
+        {% if reg.status == 'pending' %}
+        <div style="display:flex;gap:6px;">
+          <form method="POST" action="{{ url_for('admin.approve_student_reg', rid=reg.id) }}" id="ap2-{{ reg.id }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="button" class="btn btn-success btn-xs ripple-btn"
+                    onclick="spasConfirm('Approve <b>{{ reg.full_name }}</b>?', function(){ document.getElementById('ap2-{{ reg.id }}').submit(); }, {icon:'<i class=\'fa-solid fa-check-double\'></i>',confirmText:'Approve',danger:false})">Approve</button>
+          </form>
+          <button class="btn btn-danger btn-xs ripple-btn" onclick="showAdminReject({{ reg.id }}, '{{ reg.full_name }}')">Reject</button>
+        </div>
+        {% elif reg.status == 'rejected' and reg.reject_reason %}
+        <span class="text-xs text-dim" style="cursor:help;" title="{{ reg.reject_reason }}"><i class="fa-solid fa-comment-dots"></i> Reason</span>
+        {% else %}<span class="text-dim text-xs">—</span>{% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-state-icon"><i class="fa-solid fa-id-card"></i></div>
+    <h3>No registrations yet</h3>
+    <p>Student self-registrations will appear here once students use the register link.</p>
+  </div>
+  {% endif %}
+</div>
+
+{# ── Reject Modal — SPAS design system ── #}
+<div id="adminRejectModal" class="spas-modal-overlay" style="display:none;">
+  <div class="spas-modal-box" style="border-color:rgba(239,68,68,0.3);">
+    <div class="spas-modal-icon"><i class="fa-solid fa-ban"></i></div>
+    <div class="spas-modal-title" id="adminRejectTitle">Reject Registration</div>
+    <form id="adminRejectForm" method="POST">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="f-group" style="text-align:left;margin-bottom:18px;">
+        <label class="f-label">Reason for Rejection</label>
+        <textarea name="reason" class="f-control" rows="3"
+                  placeholder="Explain why this registration is being rejected…"
+                  required style="resize:vertical;"></textarea>
+      </div>
+      <div class="spas-modal-actions">
+        <button type="submit" class="btn-danger-spas ripple-btn">
+          <span class="btn-ic"><i class="fa-solid fa-ban"></i></span> Reject
+        </button>
+        <button type="button" class="btn-ghost ripple-btn" onclick="closeAdminRejectModal()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function showAdminReject(rid, name) {
+  const modal = document.getElementById('adminRejectModal');
+  document.getElementById('adminRejectTitle').textContent = 'Reject — ' + name;
+  document.getElementById('adminRejectForm').action = '/admin/student-registrations/' + rid + '/reject';
+  modal.style.display = 'flex';
+  requestAnimationFrame(() => modal.classList.add('modal-open'));
+}
+function closeAdminRejectModal() {
+  const modal = document.getElementById('adminRejectModal');
+  modal.classList.remove('modal-open');
+  setTimeout(() => modal.style.display = 'none', 280);
+}
+document.getElementById('adminRejectModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeAdminRejectModal();
+});
+</script>
+{% endblock %}

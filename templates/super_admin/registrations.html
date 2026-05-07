@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% block title %}College Registrations{% endblock %}
+{% block page_title %}// <i class="fa-solid fa-building-columns"></i> College Registration Requests{% endblock %}
+{% block content %}
+
+<div class="stats-row" style="margin-bottom:20px;">
+  <div class="stat-card sc-yellow"><div class="s-label">Pending</div><div class="s-val">{{ registrations|selectattr('status','eq','pending')|list|length }}</div></div>
+  <div class="stat-card sc-green"><div class="s-label">Approved</div><div class="s-val">{{ registrations|selectattr('status','eq','approved')|list|length }}</div></div>
+  <div class="stat-card sc-red"><div class="s-label">Rejected</div><div class="s-val">{{ registrations|selectattr('status','eq','rejected')|list|length }}</div></div>
+</div>
+
+<div class="card">
+  <div class="card-hdr">
+    <div class="sec-title">All Registrations</div>
+    <a href="{{ url_for('super_admin.dashboard') }}" class="btn-ghost">← Dashboard</a>
+  </div>
+
+  {% if registrations %}
+  <table class="spas-table">
+    <thead><tr><th>College</th><th>Code</th><th>Contact</th><th>City</th><th>Submitted</th><th>Status</th><th>Actions</th></tr></thead>
+    <tbody>
+    {% for r in registrations %}
+    <tr>
+      <td>
+        <div class="fw700">{{ r.college_name }}</div>
+        <div class="text-dim text-xs">{{ r.university or 'RGPV Bhopal' }}</div>
+        {% if r.message %}<div class="text-xs text-dim" style="margin-top:2px;font-style:italic">"{{ r.message[:60] }}{% if r.message|length>60 %}…{% endif %}"</div>{% endif %}
+      </td>
+      <td><span class="mono cyan">{{ r.college_code }}</span></td>
+      <td>
+        <div class="fw600 text-sm">{{ r.contact_name }}</div>
+        <div class="text-dim text-xs">{{ r.contact_email }}</div>
+        {% if r.contact_phone %}<div class="text-dim text-xs">{{ r.contact_phone }}</div>{% endif %}
+      </td>
+      <td class="text-dim text-sm">{{ r.city or '—' }}, {{ r.state or '' }}</td>
+      <td class="mono text-dim text-xs">{{ (r.submitted_at or '')[:16] }}</td>
+      <td>
+        {% if r.status == 'pending' %}
+        <span class="badge badge-yellow"><i class="fa-solid fa-hourglass-half"></i> Pending</span>
+        {% elif r.status == 'approved' %}
+        <span class="badge badge-green"><i class="fa-solid fa-circle-check"></i> Approved</span>
+        {% else %}
+        <span class="badge badge-red"><i class="fa-solid fa-circle-xmark"></i> Rejected</span>
+        {% if r.reject_reason %}<div class="text-xs text-dim" style="margin-top:3px;">{{ r.reject_reason[:40] }}</div>{% endif %}
+        {% endif %}
+      </td>
+      <td>
+        {% if r.status == 'pending' %}
+        <div class="act-row">
+          <form method="POST" action="{{ url_for('super_admin.approve_registration', rid=r.id) }}" style="display:inline;">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            <button type="submit" class="btn-cyan btn-sm" onclick="return confirm('Approve {{ r.college_name }}? Admin credentials will be emailed to {{ r.contact_email }}.')"><i class="fa-solid fa-check"></i> Approve</button>
+          </form>
+          <button class="btn-danger btn-sm" onclick="openRejectModal({{ r.id }},'{{ r.college_name }}')"><i class="fa-solid fa-xmark"></i> Reject</button>
+        </div>
+        {% else %}
+        <span class="text-dim text-xs mono">{{ (r.reviewed_at or '')[:10] }}</span>
+        {% endif %}
+      </td>
+    </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <div class="empty-state">No registration requests yet.</div>
+  {% endif %}
+</div>
+
+{# Reject Modal — SPAS design system #}
+<div class="spas-modal-overlay" id="rejectModal" style="display:none;">
+  <div class="spas-modal-box" style="border-color:rgba(239,68,68,0.3);">
+    <div class="spas-modal-icon"><i class="fa-solid fa-ban"></i></div>
+    <div class="spas-modal-title">Reject Registration</div>
+    <div class="spas-modal-msg" id="rejectCollegeName"></div>
+    <form method="POST" id="rejectForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="f-group" style="text-align:left;margin-bottom:18px;">
+        <label class="f-label">Reason for Rejection <small style="color:#8b949e;">(emailed to contact)</small></label>
+        <textarea name="reason" class="f-control" rows="3"
+                  placeholder="e.g. Invalid college code, duplicate entry…"
+                  required style="resize:vertical;min-height:80px;"></textarea>
+      </div>
+      <div class="spas-modal-actions">
+        <button type="submit" class="btn-danger-spas ripple-btn">
+          <span class="btn-ic"><i class="fa-solid fa-ban"></i></span> Reject &amp; Notify
+        </button>
+        <button type="button" class="btn-ghost ripple-btn" onclick="closeRejectModal()">Cancel</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function escHtml(s){
+  if(s===null||s===undefined)return'';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function openRejectModal(id, name) {
+  document.getElementById('rejectCollegeName').textContent = 'College: ' + name;
+  document.getElementById('rejectForm').action = '/superadmin/registrations/' + id + '/reject';
+  const modal = document.getElementById('rejectModal');
+  modal.style.display = 'flex';
+  requestAnimationFrame(() => modal.classList.add('modal-open'));
+}
+function closeRejectModal() {
+  const modal = document.getElementById('rejectModal');
+  modal.classList.remove('modal-open');
+  setTimeout(() => modal.style.display = 'none', 280);
+}
+document.getElementById('rejectModal').addEventListener('click', e => {
+  if (e.target === e.currentTarget) closeRejectModal();
+});
+</script>
+{% endblock %}

@@ -1,0 +1,102 @@
+{% extends 'base.html' %}
+{% block title %}{{ 'Edit' if admin else 'Add' }} Admin{% endblock %}
+{% block page_title %}// {{ 'Edit' if admin else 'Add' }} Admin{% endblock %}
+{% block content %}
+<div style="max-width:540px;">
+<div class="card">
+  <div class="card-hdr" style="margin-bottom:20px;">
+    <div>
+      <div class="sec-title" style="margin-bottom:2px;">{{ 'Edit' if admin else 'Create' }} Admin Account</div>
+      {% if admin %}<div class="text-dim text-xs">Editing: <span class="mono cyan">{{ admin.username }}</span></div>{% endif %}
+    </div>
+    <a href="{{ url_for('super_admin.dashboard') }}" class="btn-ghost btn-sm">← Back</a>
+  </div>
+
+  <form method="POST" id="mainForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="grid-2">
+      <div class="f-group">
+        <label class="f-label">Username *</label>
+        <input type="text" name="username" class="f-control" required
+               value="{{ admin.username if admin else '' }}"
+               placeholder="e.g. admin_tce" autocomplete="off"/>
+      </div>
+      <div class="f-group">
+        <label class="f-label">
+          Password {% if admin %}<span class="text-dim">(blank = keep current)</span>{% else %}*{% endif %}
+        </label>
+        <div style="position:relative;">
+          <input type="password" name="password" id="pwdInput" class="f-control"
+                 {% if not admin %}required{% endif %}
+                 placeholder="Min. 6 characters" autocomplete="new-password"
+                 style="padding-right:44px;"/>
+          <button type="button" class="pwd-eye" onclick="togglePwd('pwdInput',this)" title="Show/hide">👁</button>
+        </div>
+      </div>
+    </div>
+    <div class="grid-2">
+      <div class="f-group">
+        <label class="f-label">Full Name</label>
+        <input type="text" name="full_name" class="f-control"
+               value="{{ admin.full_name if admin else '' }}"
+               placeholder="e.g. Dr. Rajesh Kumar"/>
+      </div>
+      <div class="f-group">
+        <label class="f-label">Email</label>
+        <input type="email" name="email" class="f-control"
+               value="{{ admin.email if admin else '' }}"
+               placeholder="admin@college.edu"/>
+      </div>
+    </div>
+    <div class="f-group">
+      <label class="f-label">Assign College *</label>
+      <select name="college_id" class="f-control" required>
+        <option value="">— Select College —</option>
+        {% for c in colleges %}
+        <option value="{{ c.id }}" {% if admin and admin.college_id == c.id %}selected{% endif %}>
+          {{ c.name }} ({{ c.college_code }})
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="info-box" style="margin-bottom:16px;">
+      <span style="color:var(--accent);">ℹ</span>
+      Admin can manage teachers, review student registrations, and oversee academic data for their college.
+    </div>
+    <div class="act-row">
+      <button type="submit" class="btn-primary-spas ripple-btn">
+        <span class="btn-ic">{{ '💾' if admin else '✅' }}</span>
+        {{ 'Save Changes' if admin else 'Create Admin' }}
+      </button>
+      <a href="{{ url_for('super_admin.dashboard') }}" class="btn-ghost ripple-btn">Cancel</a>
+    </div>
+  </form>
+
+  {# ── Delete — OUTSIDE the edit form to avoid nested form bug ── #}
+  {% if admin %}
+  <div class="danger-zone">
+    <div class="dz-label">⚠️ Danger Zone</div>
+    <div class="dz-row">
+      <div class="text-dim text-xs">Permanently remove this admin account.</div>
+      <form method="POST" action="{{ url_for('super_admin.delete_admin', uid=admin.id) }}" id="deleteAdminForm">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="button" class="btn-danger-spas ripple-btn"
+                onclick="spasConfirm('Delete admin <b>{{ admin.username }}</b>? This cannot be undone.', function(){ document.getElementById('deleteAdminForm').submit(); })">
+          🗑️ Delete Admin
+        </button>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+</div>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+function togglePwd(id, btn) {
+  const f = document.getElementById(id);
+  f.type = f.type === 'password' ? 'text' : 'password';
+  btn.textContent = f.type === 'password' ? '👁' : '🙈';
+}
+</script>
+{% endblock %}

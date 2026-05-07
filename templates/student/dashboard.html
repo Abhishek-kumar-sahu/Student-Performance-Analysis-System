@@ -1,0 +1,424 @@
+{% extends 'base.html' %}
+{% block title %}My Academic Dashboard{% endblock %}
+{% block page_title %}// <i class="fa-solid fa-gauge-high"></i> My Academic Dashboard{% endblock %}
+{% block content %}
+{% set latest = semesters[-1] if semesters else {} %}
+
+{# ── Profile Banner ── #}
+<div class="profile-banner mb-24">
+  {% if student.profile_photo %}
+  <div class="profile-avatar" style="padding:0;overflow:hidden;flex-shrink:0;">
+    <img src="{{ student.profile_photo }}" alt="{{ student.name }}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">
+  </div>
+  {% else %}
+  <div class="profile-avatar">{{ student.name[0] }}</div>
+  {% endif %}
+  <div class="profile-info">
+    <div class="profile-name">{{ student.name }}</div>
+    <div class="profile-enr">{{ student.enrollment_no }}</div>
+    <div class="profile-meta">
+      <span><i class="fa-solid fa-user-graduate"></i> {{ student.programme }} — {{ student.branch }}</span>
+      <span><i class="fa-solid fa-layer-group"></i> {{ semesters|length }} Semester{{ 's' if semesters|length != 1 }} Completed</span>
+      {% if col %}<span><i class="fa-solid fa-building-columns"></i> {{ col.name }}</span>{% endif %}
+      <span><i class="fa-solid fa-rotate"></i> Last sync: {{ student.last_synced[:10] if student.last_synced else 'Not synced' }}</span>
+    </div>
+  </div>
+  <div style="flex-shrink:0;">
+    <a href="{{ url_for('student.download_report') }}" class="btn btn-primary">
+      <i class="fa-solid fa-file-pdf"></i> Download Report PDF
+    </a>
+  </div>
+</div>
+
+{% if not semesters %}
+<div class="card" style="border-color:rgba(245,158,11,.2);">
+  <div class="empty-state" style="padding:48px;">
+    <div class="empty-state-icon"><i class="fa-solid fa-box-open"></i></div>
+    <h3>No Academic Data Yet</h3>
+    <p>Your academic records haven't been synced. Contact your college admin or teacher.</p>
+  </div>
+</div>
+{% else %}
+
+{# ── KPI Cards — Latest Semester ── #}
+<div class="stats-row">
+  <div class="stat-card sc-blue">
+    <div class="s-icon"><i class="fa-solid fa-bullseye"></i></div>
+    <div class="s-label">CGPA</div>
+    <div class="s-val" data-count="{{ '%.2f'|format(latest.cgpa or 0) }}">{{ '%.2f'|format(latest.cgpa or 0) }}</div>
+    <div class="s-sub">Cumulative GPA</div>
+  </div>
+  <div class="stat-card sc-green">
+    <div class="s-icon"><i class="fa-solid fa-chart-line"></i></div>
+    <div class="s-label">SGPA Sem {{ latest.semester_no }}</div>
+    <div class="s-val" data-count="{{ '%.2f'|format(latest.sgpa or 0) }}">{{ '%.2f'|format(latest.sgpa or 0) }}</div>
+    <div class="s-sub">Semester GPA</div>
+  </div>
+  <div class="stat-card sc-cyan">
+    <div class="s-icon"><i class="fa-solid fa-calendar-check"></i></div>
+    <div class="s-label">Attendance</div>
+    <div class="s-val">{{ '%.1f'|format(latest.attendance or 0) }}%</div>
+    <div class="s-sub">Current semester</div>
+  </div>
+  <div class="stat-card {% if (latest.backlog_count or 0) > 0 %}sc-red{% else %}sc-green{% endif %}">
+    <div class="s-icon">{% if (latest.backlog_count or 0) > 0 %}<i class="fa-solid fa-triangle-exclamation"></i>{% else %}<i class="fa-solid fa-circle-check"></i>{% endif %}</div>
+    <div class="s-label">Backlogs</div>
+    <div class="s-val" data-count="{{ latest.backlog_count or 0 }}">{{ latest.backlog_count or 0 }}</div>
+    <div class="s-sub">Failed subjects</div>
+  </div>
+  <div class="stat-card {% if latest.result == 'PASS' %}sc-green{% else %}sc-red{% endif %}">
+    <div class="s-icon">{% if latest.result == 'PASS' %}<i class="fa-solid fa-trophy"></i>{% else %}<i class="fa-solid fa-circle-xmark"></i>{% endif %}</div>
+    <div class="s-label">Result</div>
+    <div class="s-val" style="font-size:1.4rem;">{{ latest.result or '—' }}</div>
+    <div class="s-sub">Sem {{ latest.semester_no }}</div>
+  </div>
+  <div class="stat-card sc-purple">
+    <div class="s-icon"><i class="fa-solid fa-chart-simple"></i></div>
+    <div class="s-label">Percentage</div>
+    <div class="s-val">{{ '%.1f'|format(latest.percentage or 0) }}%</div>
+    <div class="s-sub">{{ latest.total_marks or 0 }}/{{ latest.max_marks or 0 }} marks</div>
+  </div>
+</div>
+
+{# ── AI Prediction + Insights ── #}
+<div class="grid-2 mb-20">
+  <div class="ml-card">
+    <div class="sec-title" style="color:#a855f7;"><i class="fa-solid fa-robot"></i> AI Academic Prediction</div>
+    <div class="ml-label" {{ 'style="color:' ~ ml_pred.color ~ ';"'|safe if ml_pred else '' }}>{{ ml_pred.icon }} {{ ml_pred.label }}</div>
+    <div style="font-size:.72rem;color:#8b949e;margin-bottom:8px;">Confidence Score: {{ ml_pred.confidence }}%</div>
+    <div class="ml-bar">
+      <div class="ml-fill" data-width="{{ ml_pred.confidence }}%" {{ 'style="width:0;background:' ~ ml_pred.color ~ ';"'|safe if ml_pred else '' }}></div>
+    </div>
+    <div style="display:flex;gap:20px;margin-top:12px;font-size:.75rem;">
+      <div><span style="color:#8b949e;">CGPA:</span> <strong class="text-blue mono">{{ '%.2f'|format(ml_pred.cgpa or 0) }}</strong></div>
+      <div><span style="color:#8b949e;">Attendance:</span> <strong class="text-blue mono">{{ '%.1f'|format(ml_pred.attendance or 0) }}%</strong></div>
+    </div>
+    <div style="margin-top:14px;font-size:.72rem;color:#484f58;border-top:1px solid rgba(255,255,255,.05);padding-top:10px;line-height:1.6;">
+      Prediction based on CGPA, attendance, backlogs &amp; semester trend.
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-hdr" style="margin-bottom:14px;"><div class="card-title"><i class="fa-solid fa-lightbulb"></i> Performance Insights</div></div>
+    {% if best_subject and worst_subject %}
+    <div style="display:flex;flex-direction:column;gap:10px;">
+      <div class="insight-card ic-green">
+        <div class="ic-label"><i class="fa-solid fa-trophy"></i> Best Subject — Sem {{ latest.semester_no }}</div>
+        <div class="ic-val green">{{ best_subject.subject_name[:32] }}</div>
+        <div class="ic-sub">Grade: <strong>{{ best_subject.grade }}</strong> · GP: {{ best_subject.grade_point }}</div>
+      </div>
+      <div class="insight-card ic-red">
+        <div class="ic-label"><i class="fa-solid fa-arrow-trend-down"></i> Needs Improvement</div>
+        <div class="ic-val red">{{ worst_subject.subject_name[:32] }}</div>
+        <div class="ic-sub">Grade: <strong>{{ worst_subject.grade }}</strong> · GP: {{ worst_subject.grade_point }}</div>
+      </div>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:24px;">
+      <div class="empty-state-icon"><i class="fa-solid fa-chart-bar"></i></div>
+      <p>No subject data available for this semester.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+{# ── Trend Charts ── #}
+<div class="grid-2 mb-20">
+  <div class="card">
+    <div class="card-hdr" style="margin-bottom:14px;"><div class="card-title"><i class="fa-solid fa-chart-line"></i> CGPA &amp; SGPA Trend</div></div>
+    <div class="chart-wrap"><canvas id="trendChart"></canvas></div>
+  </div>
+  <div class="card">
+    <div class="card-hdr" style="margin-bottom:14px;"><div class="card-title"><i class="fa-solid fa-chart-column"></i> Sem {{ latest.semester_no }} — Subject Marks</div></div>
+    <div class="chart-wrap"><canvas id="subjectChart"></canvas></div>
+  </div>
+</div>
+
+{# ══════════════════════════════════════════════════════════════════════ #}
+{# ── MULTI-SEMESTER TABS ─────────────────────────────────────────────── #}
+{# ══════════════════════════════════════════════════════════════════════ #}
+<div class="card mb-20">
+  <div class="card-hdr" style="margin-bottom:16px;">
+    <div class="card-title">
+      <i class="fa-solid fa-table-list"></i> Semester-wise Academic Record
+    </div>
+    <span class="badge badge-blue">{{ semesters|length }} Semester{{ 's' if semesters|length != 1 }}</span>
+  </div>
+
+  {# Semester Tab Buttons #}
+  <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px;border-bottom:1px solid rgba(0,255,255,.1);padding-bottom:12px;">
+    <button class="sem-tab-btn active" onclick="switchSemTab('{{ latest.semester_no }}', this)">
+      <i class="fa-solid fa-star" style="font-size:.65rem;"></i> Sem {{ latest.semester_no }} (Latest)
+    </button>
+    {% for sem in semesters|reverse %}
+    {% if sem.semester_no != latest.semester_no %}
+    <button class="sem-tab-btn" onclick="switchSemTab('{{ sem.semester_no }}', this)">
+      Sem {{ sem.semester_no }}
+    </button>
+    {% endif %}
+    {% endfor %}
+    <button class="sem-tab-btn" onclick="switchSemTab('all', this)" style="margin-left:auto;">
+      <i class="fa-solid fa-list"></i> All Semesters
+    </button>
+  </div>
+
+  {# All Semesters Summary Panel #}
+  <div id="sem-panel-all" class="sem-panel" style="display:none;">
+    <div class="table-wrap">
+      <table class="spas-table">
+        <thead>
+          <tr>
+            <th>Semester</th><th>SGPA</th><th>CGPA</th>
+            <th>Marks</th><th>Percentage</th><th>Attendance</th><th>Backlogs</th><th>Result</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for sem in semesters %}
+        <tr style="cursor:pointer;" onclick="switchSemTab('{{ sem.semester_no }}', null)">
+          <td>
+            <span class="mono text-blue fw700">Semester {{ sem.semester_no }}</span>
+            {% if sem.semester_no == latest.semester_no %}
+            <span class="badge badge-blue" style="margin-left:6px;font-size:.6rem;">Latest</span>
+            {% endif %}
+          </td>
+          <td>
+            <strong class="mono {% if (sem.sgpa or 0)>=8 %}text-green{% elif (sem.sgpa or 0)>=6 %}text-blue{% elif (sem.sgpa or 0)>=5 %}text-yellow{% else %}text-red{% endif %}">
+              {{ '%.2f'|format(sem.sgpa or 0) }}
+            </strong>
+          </td>
+          <td><strong class="mono text-blue">{{ '%.2f'|format(sem.cgpa or 0) }}</strong></td>
+          <td class="mono text-sm">{{ sem.total_marks or 0 }} / {{ sem.max_marks or 0 }}</td>
+          <td class="text-sm">{{ '%.1f'|format(sem.percentage or 0) }}%</td>
+          <td>
+            <div class="text-sm">{{ '%.1f'|format(sem.attendance or 0) }}%</div>
+            <div class="progress-bar" style="width:80px;">
+              {% set att = sem.attendance or 0 %}
+              {% set bg = '#10b981' if att >= 75 else ('#f59e0b' if att >= 60 else '#ef4444') %}
+              <div class="progress-fill" data-width="{{ att }}%" {{ ('style="width:0;background:' ~ bg ~ ';"')|safe }}></div>
+            </div>
+          </td>
+          <td>
+            {% if (sem.backlog_count or 0) > 0 %}
+            <span class="badge badge-red">{{ sem.backlog_count }}</span>
+            {% else %}<span class="badge badge-green">None</span>{% endif %}
+          </td>
+          <td>
+            <span class="badge {% if sem.result == 'PASS' %}badge-green{% else %}badge-red{% endif %}">{{ sem.result or '—' }}</span>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# Individual Semester Panels #}
+  {% for sem in semesters %}
+  <div id="sem-panel-{{ sem.semester_no }}" class="sem-panel" {{ ('style="display:block;"' if sem.semester_no == latest.semester_no else 'style="display:none;"')|safe }}>
+
+    {# Semester KPI Mini-row #}
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:10px;margin-bottom:16px;">
+      <div class="sem-kpi-card" style="border-color:rgba(0,204,204,.3);">
+        <div class="sem-kpi-label"><i class="fa-solid fa-chart-line"></i> SGPA</div>
+        <div class="sem-kpi-val {% if (sem.sgpa or 0)>=8 %}text-green{% elif (sem.sgpa or 0)>=6 %}text-blue{% elif (sem.sgpa or 0)>=5 %}text-yellow{% else %}text-red{% endif %}">
+          {{ '%.2f'|format(sem.sgpa or 0) }}
+        </div>
+      </div>
+      <div class="sem-kpi-card" style="border-color:rgba(88,166,255,.3);">
+        <div class="sem-kpi-label"><i class="fa-solid fa-bullseye"></i> CGPA</div>
+        <div class="sem-kpi-val text-blue">{{ '%.2f'|format(sem.cgpa or 0) }}</div>
+      </div>
+      <div class="sem-kpi-card" style="border-color:rgba(168,85,247,.3);">
+        <div class="sem-kpi-label"><i class="fa-solid fa-percent"></i> Percentage</div>
+        <div class="sem-kpi-val text-purple">{{ '%.1f'|format(sem.percentage or 0) }}%</div>
+      </div>
+      <div class="sem-kpi-card" style="border-color:rgba(0,204,204,.2);">
+        <div class="sem-kpi-label"><i class="fa-solid fa-calendar-check"></i> Attendance</div>
+        <div class="sem-kpi-val {% if (sem.attendance or 0)>=75 %}text-green{% elif (sem.attendance or 0)>=60 %}text-yellow{% else %}text-red{% endif %}">
+          {{ '%.1f'|format(sem.attendance or 0) }}%
+        </div>
+      </div>
+      <div class="sem-kpi-card" {{ ('style="border-color:rgba(255,77,77,.3);"' if (sem.backlog_count or 0)>0 else 'style="border-color:rgba(0,255,153,.3);"')|safe }}>
+        <div class="sem-kpi-label"><i class="fa-solid fa-exclamation-circle"></i> Backlogs</div>
+        <div class="sem-kpi-val {% if (sem.backlog_count or 0)>0 %}text-red{% else %}text-green{% endif %}">
+          {{ sem.backlog_count or 0 }}
+        </div>
+      </div>
+      <div class="sem-kpi-card" {{ ('style="border-color:rgba(0,255,153,.3);"' if sem.result=='PASS' else 'style="border-color:rgba(255,77,77,.3);"')|safe }}>
+        <div class="sem-kpi-label"><i class="fa-solid fa-flag-checkered"></i> Result</div>
+        <div class="sem-kpi-val {% if sem.result=='PASS' %}text-green{% else %}text-red{% endif %}">
+          {{ sem.result or '—' }}
+        </div>
+      </div>
+    </div>
+
+    {# Subject Table #}
+    {% if sem.subjects %}
+    <div class="table-wrap">
+      <table class="spas-table" style="font-size:.8rem;">
+        <thead>
+          <tr>
+            <th>Subject</th><th>Type</th><th>Internal</th><th>External</th>
+            <th>Total /100</th><th>Grade</th><th>GP</th><th>Credits</th><th>Attendance</th><th>Status</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for s in sem.subjects %}
+        <tr>
+          <td>
+            <strong class="text-sm">{{ s.subject_name }}</strong><br>
+            <span class="mono text-dim" style="font-size:.7rem;">{{ s.subject_code or '' }}</span>
+          </td>
+          <td><span class="badge badge-dim" style="font-size:.65rem;">{{ s.subject_type or 'Theory' }}</span></td>
+          <td class="mono text-sm">{{ '%.1f'|format(s.internal_marks or 0) }}</td>
+          <td class="mono text-sm">{{ '%.1f'|format(s.external_marks or 0) }}</td>
+          <td><strong class="mono">{{ '%.1f'|format(s.total_marks or 0) }}</strong></td>
+          <td>
+            <span class="badge {% if s.grade in ('O','A+') %}badge-green{% elif s.grade in ('A','B+','B') %}badge-blue{% elif s.grade == 'F' %}badge-red{% else %}badge-yellow{% endif %}">
+              {{ s.grade or '—' }}
+            </span>
+          </td>
+          <td class="mono text-sm fw700">{{ '%.1f'|format(s.grade_point or 0) }}</td>
+          <td class="mono text-sm">{{ s.credits or '—' }}</td>
+          <td class="text-sm">
+            {% if s.attendance_pct %}
+            <span class="{% if (s.attendance_pct or 0)>=75 %}text-green{% elif (s.attendance_pct or 0)>=60 %}text-yellow{% else %}text-red{% endif %}">
+              {{ '%.0f'|format(s.attendance_pct or 0) }}%
+            </span>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            <span class="badge {% if s.status == 'PASS' %}badge-green{% else %}badge-red{% endif %}">
+              {{ s.status or '—' }}
+            </span>
+          </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:28px;">
+      <div class="empty-state-icon"><i class="fa-solid fa-database"></i></div>
+      <p>No subject data available for Semester {{ sem.semester_no }}.</p>
+    </div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script id="data-trend" type="application/json">{{ sgpa_trend | tojson }}</script>
+<script>
+// ── Semester Tab Switcher ─────────────────────────────────────────────
+function switchSemTab(semNo, clickedBtn) {
+  // Hide all panels
+  document.querySelectorAll('.sem-panel').forEach(p => p.style.display = 'none');
+  // Deactivate all tab buttons
+  document.querySelectorAll('.sem-tab-btn').forEach(b => b.classList.remove('active'));
+  // Show target panel
+  const panel = document.getElementById('sem-panel-' + semNo);
+  if (panel) panel.style.display = 'block';
+  // Activate clicked button
+  if (clickedBtn) clickedBtn.classList.add('active');
+}
+
+// ── Animate stat counters ─────────────────────────────────────────────
+document.querySelectorAll('[data-count]').forEach(el => {
+  const target = parseFloat(el.dataset.count);
+  if (isNaN(target)) return;
+  let start = 0, step = target / 50;
+  const timer = setInterval(() => {
+    start = Math.min(start + step, target);
+    el.textContent = target % 1 === 0 ? Math.round(start) : start.toFixed(2);
+    if (start >= target) clearInterval(timer);
+  }, 20);
+});
+
+// ── Progress bars ─────────────────────────────────────────────────────
+document.querySelectorAll('.progress-fill, .ml-fill').forEach(el => {
+  const w = el.dataset.width;
+  if (w) setTimeout(() => el.style.width = w, 300);
+});
+
+/* {% if semesters %} */
+const trendData = JSON.parse(document.getElementById('data-trend').textContent || '[]');
+const labels = trendData.map(d => 'Sem ' + d.sem);
+const sgpas  = trendData.map(d => parseFloat(d.sgpa) || 0);
+const cgpas  = trendData.map(d => parseFloat(d.cgpa) || 0);
+const atts   = trendData.map(d => parseFloat(d.att)  || 0);
+
+// ── Trend Chart ───────────────────────────────────────────────────────
+const trendCtx = document.getElementById('trendChart');
+if (trendCtx) {
+  new Chart(trendCtx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        { label:'SGPA', data:sgpas, borderColor:'#00cccc', backgroundColor:'rgba(0,204,204,.08)',
+          borderWidth:2.5, pointRadius:5, pointHoverRadius:7, tension:.35, fill:true },
+        { label:'CGPA', data:cgpas, borderColor:'#a855f7', backgroundColor:'rgba(168,85,247,.05)',
+          borderWidth:2, pointRadius:4, tension:.35, borderDash:[5,3] }
+      ]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      scales: {
+        y: { min:0, max:10, grid:{color:'rgba(255,255,255,.05)'},
+             ticks:{color:'#8b949e',font:{size:11}} },
+        x: { grid:{display:false}, ticks:{color:'#8b949e',font:{size:11}} }
+      },
+      plugins: { legend:{labels:{color:'#c9d1d9',font:{size:11},boxWidth:12}} }
+    }
+  });
+}
+
+// ── Subject Chart (latest semester) ───────────────────────────────────
+const subjectCtx = document.getElementById('subjectChart');
+/* {% set latest_subjects = semesters[-1].subjects if semesters else [] %} */
+/* {% if latest_subjects %} */
+</script>
+<script id="data-subject-names" type="application/json">{{ latest_subjects | map(attribute='subject_name') | list | tojson }}</script>
+<script id="data-subject-gps" type="application/json">{{ latest_subjects | map(attribute='grade_point') | list | tojson }}</script>
+<script>
+const subjectNames = JSON.parse(document.getElementById('data-subject-names').textContent || '[]');
+const subjectGPs   = JSON.parse(document.getElementById('data-subject-gps').textContent || '[]');
+const subjectCols  = subjectGPs.map(v => {
+  const gp = parseFloat(v) || 0;
+  if (gp >= 9)  return 'rgba(0,255,153,.8)';
+  if (gp >= 7)  return 'rgba(0,204,204,.8)';
+  if (gp >= 5)  return 'rgba(255,204,0,.8)';
+  return 'rgba(255,77,77,.8)';
+});
+if (subjectCtx) {
+  new Chart(subjectCtx, {
+    type: 'bar',
+    data: {
+      labels: subjectNames.map(n => n.length > 12 ? n.substring(0,12)+'…' : n),
+      datasets: [{
+        label: 'Grade Point',
+        data: subjectGPs.map(v => parseFloat(v) || 0),
+        backgroundColor: subjectCols,
+        borderRadius: 6, borderSkipped: false
+      }]
+    },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      scales: {
+        y: { min:0, max:10, grid:{color:'rgba(255,255,255,.05)'},
+             ticks:{color:'#8b949e',font:{size:10}} },
+        x: { grid:{display:false}, ticks:{color:'#8b949e',font:{size:9}, maxRotation:45} }
+      },
+      plugins: { legend:{display:false} }
+    }
+  });
+}
+/* {% endif %} */
+/* {% endif %} */
+</script>
+{% endblock %}

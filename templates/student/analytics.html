@@ -1,0 +1,189 @@
+{% extends 'base.html' %}
+{% block title %}Analytics{% endblock %}
+{% block page_title %}// Performance Analytics{% endblock %}
+{% block content %}
+
+<div class="profile-banner mb-24">
+  <div class="profile-avatar">{{ student.name[0] }}</div>
+  <div class="profile-info">
+    <div class="profile-name">{{ student.name }}</div>
+    <div class="profile-enr">{{ student.enrollment_no }}</div>
+    <div class="profile-meta">
+      <span>🎓 {{ student.programme }} — {{ student.branch }}</span>
+      <span>📚 Semester {{ student.current_semester }}</span>
+    </div>
+  </div>
+  <div style="flex-shrink:0;display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+    {% for s in range(1, student.current_semester+1) %}
+    <a href="?sem={{ s }}" class="btn btn-sm {% if semester==s %}btn-primary{% else %}btn-outline{% endif %}">S{{ s }}</a>
+    {% endfor %}
+  </div>
+</div>
+
+<div class="stats-row">
+  <div class="stat-card sc-cyan">
+    <div class="s-icon">📊</div>
+    <div class="s-label">Avg Score Sem {{ semester }}</div>
+    <div class="s-val">{{ "%.1f"|format(semester_avg.get(semester, 0)) }}%</div>
+    <div class="s-sub">Subject average</div>
+  </div>
+  <div class="stat-card sc-purple">
+    <div class="s-icon">🏆</div>
+    <div class="s-label">Class Rank</div>
+    <div class="s-val">#{{ rank }}</div>
+    <div class="s-sub">of {{ total_in_dept }} students</div>
+  </div>
+  {% if prediction %}
+  <div class="stat-card {% if prediction.risk_level in ('high','critical') %}sc-red{% elif prediction.risk_level == 'medium' %}sc-yellow{% else %}sc-green{% endif %}">
+    <div class="s-icon">⚡</div>
+    <div class="s-label">Risk Level</div>
+    <div class="s-val" style="font-size:1.1rem;text-transform:uppercase;">{{ prediction.risk_level or '—' }}</div>
+    <div class="s-sub">Score {{ prediction.risk_score or 0 }}/100</div>
+  </div>
+  <div class="stat-card sc-blue">
+    <div class="s-icon">🎯</div>
+    <div class="s-label">Predicted GPA</div>
+    <div class="s-val" data-count="{{ prediction.predicted_gpa or 0 }}">{{ prediction.predicted_gpa or '—' }}</div>
+    <div class="s-sub">SPAS AI Engine</div>
+  </div>
+  {% endif %}
+</div>
+
+<div class="grid-2 mb-20">
+  <div class="card">
+    <div class="card-hdr" style="margin-bottom:14px;">
+      <div class="card-title">
+        <div class="card-title-icon" style="background:rgba(0,255,255,0.1);color:var(--accent);">📈</div>
+        Semester-wise Performance
+      </div>
+    </div>
+    <div class="chart-wrap"><canvas id="semChart"></canvas></div>
+  </div>
+
+  <div class="card">
+    <div class="card-hdr" style="margin-bottom:14px;">
+      <div class="card-title">
+        <div class="card-title-icon" style="background:rgba(88,166,255,0.1);color:var(--blue);">📚</div>
+        Subject Breakdown — Sem {{ semester }}
+      </div>
+    </div>
+    {% set cur_sem = semesters | selectattr("semester_no","equalto",semester) | list %}
+    {% if cur_sem and cur_sem[0].subjects %}
+    <div class="table-wrap">
+      <table class="spas-table">
+        <thead><tr><th>Subject</th><th>Total</th><th>Grade</th><th>Att%</th><th>Status</th></tr></thead>
+        <tbody>
+          {% for sub in cur_sem[0].subjects %}
+          <tr>
+            <td><strong class="text-sm">{{ sub.subject_name[:28] }}</strong><br><span class="mono text-dim text-xs">{{ sub.subject_code }}</span></td>
+            <td class="mono text-sm">{{ "%.0f"|format(sub.total_marks or 0) }}</td>
+            <td><span class="mono fw700 grade-{{ sub.grade.replace('+','p') if sub.grade else 'F' }}">{{ sub.grade or '—' }}</span></td>
+            <td>
+              <div class="text-sm">{{ "%.0f"|format(sub.attendance_pct or 0) }}%</div>
+              {% if (sub.attendance_pct or 0) < 75 %}<span class="badge badge-red" style="font-size:.58rem;">Low</span>{% endif %}
+            </td>
+            <td><span class="badge {% if sub.status=='PASS' %}badge-green{% else %}badge-red{% endif %}">{{ sub.status or '—' }}</span></td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="empty-state" style="padding:32px;"><div class="empty-state-icon">📭</div><p>No data for Semester {{ semester }}</p></div>
+    {% endif %}
+  </div>
+</div>
+
+{% if prediction and prediction.recommendations %}
+<div class="card mb-20" style="border-color:rgba(0,255,255,0.25);background:rgba(0,255,255,0.02);">
+  <div class="card-hdr" style="margin-bottom:14px;">
+    <div class="card-title">
+      <div class="card-title-icon" style="background:rgba(0,255,255,0.1);color:var(--accent);">🤖</div>
+      AI Recommendations
+    </div>
+    <span class="badge badge-blue">AI Powered</span>
+  </div>
+  <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px;">
+    {% for rec in prediction.recommendations %}
+    <div style="background:rgba(0,255,255,0.04);border:1px solid var(--border);border-radius:8px;padding:12px;font-size:.8rem;color:var(--text);">
+      <span style="color:var(--accent);margin-right:6px;">▶</span>{{ rec }}
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
+<div class="card">
+  <div class="card-hdr" style="margin-bottom:14px;">
+    <div class="card-title">
+      <div class="card-title-icon" style="background:rgba(0,255,255,0.1);color:var(--accent);">📊</div>
+      All Semesters — Quick View
+    </div>
+  </div>
+  <div class="table-wrap">
+    <table class="spas-table">
+      <thead><tr><th>Semester</th><th>SGPA</th><th>CGPA</th><th>Marks</th><th>Attendance</th><th>Backlogs</th><th>Result</th></tr></thead>
+      <tbody>
+      {% for sem in semesters %}
+      <tr>
+        <td><span class="mono text-accent fw700">Sem {{ sem.semester_no }}</span></td>
+        <td><strong class="mono {% if (sem.sgpa or 0)>=8 %}text-green{% elif (sem.sgpa or 0)>=6 %}text-blue{% elif (sem.sgpa or 0)>=5 %}text-yellow{% else %}text-red{% endif %}">{{ "%.2f"|format(sem.sgpa or 0) }}</strong></td>
+        <td><strong class="mono text-accent">{{ "%.2f"|format(sem.cgpa or 0) }}</strong></td>
+        <td class="mono text-sm">{{ sem.total_marks or 0 }}/{{ sem.max_marks or 0 }}</td>
+        <td>
+          <div class="text-sm">{{ "%.1f"|format(sem.attendance or 0) }}%</div>
+          <div class="progress-bar" style="width:80px;margin-top:3px;">
+            <div class="progress-fill" data-width="{{ sem.attendance or 0 }}%" style="width:0;background:{% if (sem.attendance or 0)>=75 %}var(--green){% elif (sem.attendance or 0)>=60 %}var(--yellow){% else %}var(--red){% endif %};"></div>
+          </div>
+        </td>
+        <td>{% if (sem.backlog_count or 0) > 0 %}<span class="badge badge-red">{{ sem.backlog_count }}</span>{% else %}<span class="badge badge-green">None</span>{% endif %}</td>
+        <td><span class="badge {% if sem.result=='PASS' %}badge-green{% else %}badge-red{% endif %}">{{ sem.result or '—' }}</span></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+// Set Chart.js defaults after CDN loads
+Chart.defaults.color = '#8b949e';
+Chart.defaults.font.family = "'JetBrains Mono', monospace";
+Chart.defaults.font.size = 11;
+Chart.defaults.plugins.legend.labels.boxWidth = 12;
+
+const semData = {{ semesters | tojson }};
+const semAvg  = {{ semester_avg | tojson }};
+if(semData && semData.length > 0){
+  const labels = semData.map(s=>`Sem ${s.semester_no}`);
+  const sgpas  = semData.map(s=>parseFloat(s.sgpa)||0);
+  const cgpas  = semData.map(s=>parseFloat(s.cgpa)||0);
+  // BUG-6 FIX: semester_avg values are 0–100% percentages, not CGPA (0–10).
+  // Plotting them on the same 0–10 Y axis caused every percentage to flatline
+  // at the top of the chart (e.g. 72.5 clamped to 10). Fix: assign a second
+  // right-hand Y axis (y1, 0–100) to the Avg% dataset.
+  const avgs   = semData.map(s=>parseFloat(semAvg[s.semester_no])||0);
+  new Chart(document.getElementById('semChart'),{
+    type:'line',
+    data:{labels,datasets:[
+      {label:'SGPA',data:sgpas,borderColor:'#00ffff',backgroundColor:'rgba(0,255,255,0.08)',fill:true,tension:.4,pointBackgroundColor:'#00ffff',pointRadius:5,borderWidth:2,yAxisID:'y'},
+      {label:'CGPA',data:cgpas,borderColor:'#00ff99',fill:false,tension:.4,borderDash:[5,3],pointBackgroundColor:'#00ff99',pointRadius:4,borderWidth:2,yAxisID:'y'},
+      {label:'Avg %',data:avgs,borderColor:'#58a6ff',fill:false,tension:.4,borderDash:[3,4],pointBackgroundColor:'#58a6ff',pointRadius:3,borderWidth:2,yAxisID:'y1'},
+    ]},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{labels:{color:'#8b949e',font:{size:11},boxWidth:14}},
+        tooltip:{callbacks:{label:ctx=>ctx.dataset.yAxisID==='y1'?` ${ctx.dataset.label}: ${ctx.raw.toFixed(1)}%`:` ${ctx.dataset.label}: ${ctx.raw.toFixed(2)}`}}
+      },
+      scales:{
+        y:{min:0,max:10,position:'left',title:{display:true,text:'GPA (0–10)',color:'#8b949e',font:{size:10}},grid:{color:'rgba(0,255,255,0.07)'},ticks:{color:'#8b949e'}},
+        y1:{min:0,max:100,position:'right',title:{display:true,text:'Avg %',color:'#58a6ff',font:{size:10}},grid:{display:false},ticks:{color:'#58a6ff',callback:v=>v+'%'}},
+        x:{grid:{display:false},ticks:{color:'#8b949e'}}
+      }
+    }
+  });
+}
+</script>
+{% endblock %}

@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+{% block title %}Register Student{% endblock %}
+{% block page_title %}// Register Student{% endblock %}
+{% block content %}
+<div class="page-header">
+  <div class="page-header-left">
+    <h1>Register Student</h1>
+    <p>Add a student directly — they'll receive login credentials via email.</p>
+  </div>
+  <div class="page-header-actions">
+    <a href="{{ url_for('teacher.dashboard') }}" class="btn btn-ghost">← Back to Dashboard</a>
+  </div>
+</div>
+
+<div style="max-width:680px;">
+  <div class="card">
+    <div class="card-hdr">
+      <div class="card-title">
+        <div class="card-title-icon" style="background:rgba(16,185,129,.1);color:#10b981"><i class="fa-solid fa-user-plus"></i></div>
+        Student Details
+      </div>
+    </div>
+
+    <form method="POST">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="f-row">
+        <div class="f-group">
+          <label class="f-label">Enrollment Number *</label>
+          <input type="text" name="enrollment_no" class="f-control" placeholder="e.g. 0115CS21001" value="{{ form.get('enrollment_no','') }}" required style="text-transform:uppercase;"/>
+        </div>
+        <div class="f-group">
+          <label class="f-label">Full Name *</label>
+          <input type="text" name="full_name" class="f-control" placeholder="Student's full name" value="{{ form.get('full_name','') }}" required/>
+        </div>
+      </div>
+      <div class="f-row">
+        <div class="f-group">
+          <label class="f-label">Email Address</label>
+          <input type="email" name="email" class="f-control" placeholder="student@email.com" value="{{ form.get('email','') }}"/>
+          <span style="font-size:.7rem;color:#8b949e;margin-top:3px;display:block;">Credentials sent here</span>
+        </div>
+        <div class="f-group">
+          <label class="f-label">Phone Number</label>
+          <input type="tel" name="phone" class="f-control" placeholder="10-digit number" value="{{ form.get('phone','') }}"/>
+        </div>
+      </div>
+      <div class="f-row">
+        <div class="f-group">
+          <label class="f-label">Branch *</label>
+          <select name="branch_code" class="f-control" id="tr-branch" required>
+            <option value="">-- Select Programme first --</option>
+            {% for key, data in programme_branches.items() %}
+            <optgroup label="{{ data.label }}" data-prog="{{ key }}">
+              {% for code, name in data.branches %}
+              <option value="{{ code }}" {% if form.get('branch_code')==code %}selected{% endif %}>{{ name }}</option>
+              {% endfor %}
+            </optgroup>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="f-group">
+          <label class="f-label">Current Semester *</label>
+          <select name="semester" class="f-control" required>
+            {% for i in range(1,9) %}
+            <option value="{{ i }}" {% if form.get('semester','1')==i|string %}selected{% endif %}>Semester {{ i }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="f-row">
+        <div class="f-group">
+          <label class="f-label">Programme</label>
+          <select name="programme" class="f-control" id="tr-programme">
+            <option value="">— Select Programme —</option>
+            {% for key, data in programme_branches.items() %}
+            <option value="{{ key }}" {% if form.get('programme')==key %}selected{% endif %}>{{ data.label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="f-group">
+          <label class="f-label">Gender</label>
+          <select name="gender" class="f-control">
+            <option value="">Prefer not to say</option>
+            <option value="Male">Male</option>
+            <option value="Female">Female</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+      </div>
+
+      <div style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.15);border-radius:8px;padding:12px 14px;margin-bottom:20px;font-size:.78rem;color:#8b949e;line-height:1.6;">
+        <i class="fa-solid fa-circle-check" style="color:#10b981"></i> As a teacher, your registration is <strong style="color:#10b981">immediately approved</strong>. A login account will be created and credentials sent to the student's email.
+      </div>
+
+      <div style="display:flex;gap:10px;">
+        <button type="submit" class="btn btn-success" style="flex:1;justify-content:center;">
+          <i class="fa-solid fa-user-plus"></i> Register Student
+        </button>
+        <a href="{{ url_for('teacher.dashboard') }}" class="btn btn-ghost">Cancel</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% block extra_scripts %}
+<script>
+(function(){
+  function filterBranches(progSel, branchSel) {
+    const prog = progSel.value;
+    branchSel.querySelectorAll('optgroup').forEach(g => {
+      const match = !prog || g.dataset.prog === prog;
+      g.style.display = match ? '' : 'none';
+      g.querySelectorAll('option').forEach(o => o.disabled = !match);
+    });
+    const cur = branchSel.value;
+    const curOpt = branchSel.querySelector(`option[value="${cur}"]`);
+    if (cur && curOpt && curOpt.disabled) branchSel.value = '';
+    branchSel.querySelector('option[value=""]').textContent =
+      prog ? '— Select Branch —' : '— Select Programme first —';
+  }
+  const pSel = document.getElementById('tr-programme');
+  const bSel = document.getElementById('tr-branch');
+  if (pSel && bSel) { filterBranches(pSel, bSel); pSel.addEventListener('change', () => filterBranches(pSel, bSel)); }
+})();
+</script>
+{% endblock %}
+{% endblock %}

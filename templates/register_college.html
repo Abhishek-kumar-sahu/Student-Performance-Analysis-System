@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+{% block title %}Register College — SPAS{% endblock %}
+{% block full_page %}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@700;900&family=Share+Tech+Mono&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+.rp-root{position:fixed;inset:0;background:#030f1c;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;padding:32px 16px 48px;}
+#rpCanvas3{position:fixed;inset:0;pointer-events:none;}
+.rp-glow{position:fixed;inset:0;background:radial-gradient(ellipse 60% 50% at 50% 40%,rgba(88,166,255,.05) 0%,transparent 65%);pointer-events:none;}
+.rp-card{position:relative;z-index:20;background:rgba(3,18,35,.82);border:1px solid rgba(88,166,255,.2);border-radius:18px;padding:32px 28px;width:100%;max-width:520px;backdrop-filter:blur(18px);box-shadow:0 0 60px rgba(88,166,255,.1),inset 0 0 40px rgba(88,166,255,.02);margin:auto;}
+.rp-card::before{content:'';position:absolute;top:0;left:12%;right:12%;height:1px;background:linear-gradient(90deg,transparent,rgba(88,166,255,.5),transparent);}
+.rp-brand{text-align:center;margin-bottom:20px;}
+.rp-icon{display:inline-flex;align-items:center;justify-content:center;width:50px;height:50px;background:linear-gradient(135deg,rgba(88,166,255,.12),rgba(0,50,160,.07));border:1.5px solid rgba(88,166,255,.4);border-radius:12px;font-size:1.4rem;margin-bottom:8px;animation:iG 3s ease-in-out infinite;}
+@keyframes iG{0%,100%{box-shadow:0 0 16px rgba(88,166,255,.2)}50%{box-shadow:0 0 34px rgba(88,166,255,.45)}}
+.rp-title{font-family:'Orbitron',sans-serif;font-size:1.15rem;font-weight:900;color:#fff;letter-spacing:.09em;}
+.rp-title em{color:#58a6ff;font-style:normal;}
+.rp-sub{font-size:.6rem;color:rgba(88,166,255,.45);letter-spacing:.16em;margin-top:4px;font-family:'Share Tech Mono',monospace;}
+.rp-flash{padding:9px 13px;border-radius:7px;font-size:.76rem;margin-bottom:12px;border:1px solid transparent;}
+.rp-flash.success,.rp-flash.info{background:rgba(0,210,180,.06);border-color:rgba(0,210,180,.25);color:#00d2b4;}
+.rp-flash.danger,.rp-flash.error{background:rgba(255,60,60,.07);border-color:rgba(255,60,60,.3);color:#ff6b6b;}
+.rp-flash.warning{background:rgba(255,200,0,.06);border-color:rgba(255,200,0,.25);color:#ffd700;}
+.rp-label{display:block;font-size:.67rem;font-family:'Share Tech Mono',monospace;color:rgba(88,166,255,.6);letter-spacing:.11em;text-transform:uppercase;margin-bottom:5px;}
+.rp-input{width:100%;background:rgba(0,0,0,.45);border:1px solid rgba(88,166,255,.2);border-radius:7px;color:#ddf0ff;padding:10px 12px;font-size:.85rem;font-family:'Share Tech Mono',monospace;transition:border-color .22s,box-shadow .22s;outline:none;}
+.rp-input:focus{border-color:rgba(88,166,255,.6);box-shadow:0 0 0 3px rgba(88,166,255,.1);}
+.rp-input::placeholder{color:rgba(255,255,255,.18);}
+.rp-sel{position:relative;}.rp-sel::after{content:"▾";position:absolute;right:11px;top:50%;transform:translateY(-50%);color:rgba(88,166,255,.55);pointer-events:none;font-size:.7rem;}
+.rp-sel select{appearance:none;-webkit-appearance:none;padding-right:32px;cursor:pointer;}
+.rp-group{margin-bottom:13px;}
+.rp-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+@media(max-width:480px){.rp-row{grid-template-columns:1fr;}}
+.rp-divider{font-size:.62rem;font-family:'Share Tech Mono',monospace;color:rgba(88,166,255,.4);letter-spacing:.14em;text-transform:uppercase;padding:10px 0 4px;border-top:1px solid rgba(88,166,255,.1);margin-top:4px;}
+.rp-info{background:rgba(88,166,255,.04);border:1px solid rgba(88,166,255,.14);border-radius:7px;padding:10px 12px;margin:6px 0 14px;font-size:.7rem;color:rgba(255,255,255,.38);line-height:1.5;}
+.rp-submit{width:100%;padding:12px;border:none;border-radius:9px;cursor:pointer;background:linear-gradient(135deg,rgba(88,166,255,.18),rgba(0,50,160,.1));border:1.5px solid rgba(88,166,255,.5);color:#58a6ff;font-family:'Orbitron',sans-serif;font-size:.78rem;font-weight:700;letter-spacing:.09em;transition:all .3s cubic-bezier(.34,1.56,.64,1);box-shadow:0 0 18px rgba(88,166,255,.12);display:flex;align-items:center;justify-content:center;gap:9px;}
+.rp-submit:hover{background:linear-gradient(135deg,rgba(88,166,255,.28),rgba(0,50,160,.18));box-shadow:0 0 38px rgba(88,166,255,.35);transform:translateY(-2px);}
+.rp-links{margin-top:16px;text-align:center;font-size:.7rem;font-family:'Share Tech Mono',monospace;color:rgba(255,255,255,.25);}
+.rp-links a{color:rgba(88,166,255,.6);text-decoration:none;}.rp-links a:hover{color:#58a6ff;}
+</style>
+<div class="rp-root">
+  <canvas id="rpCanvas3"></canvas>
+  <div class="rp-glow"></div>
+  <div class="rp-card">
+    <div class="rp-brand">
+      <div><div class="rp-icon">🏫</div></div>
+      <div class="rp-title">SP<em>AS</em></div>
+      <div class="rp-sub">College Registration</div>
+    </div>
+    {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% if msgs %}{% for cat,msg in msgs %}<div class="rp-flash {{ cat }}">{{ msg }}</div>{% endfor %}{% endif %}
+    {% endwith %}
+    <form method="POST" action="{{ url_for('auth.register_college') }}">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <div class="rp-group"><label class="rp-label">College Name *</label><input type="text" name="college_name" class="rp-input" placeholder="Full official college name" required value="{{ form.get('college_name','') if form else '' }}"/></div>
+      <div class="rp-row">
+        <div class="rp-group"><label class="rp-label">College Code *</label><input type="text" name="college_code" class="rp-input" placeholder="e.g. 0901" required style="text-transform:uppercase;" maxlength="10" value="{{ form.get('college_code','') if form else '' }}"/></div>
+        <div class="rp-group"><label class="rp-label">University</label><input type="text" name="university" class="rp-input" value="{{ form.get('university','RGPV Bhopal') if form else 'RGPV Bhopal' }}"/></div>
+      </div>
+      <div class="rp-row">
+        <div class="rp-group"><label class="rp-label">City</label><input type="text" name="city" class="rp-input" placeholder="City" value="{{ form.get('city','') if form else '' }}"/></div>
+        <div class="rp-group"><label class="rp-label">State</label><input type="text" name="state" class="rp-input" value="{{ form.get('state','Madhya Pradesh') if form else 'Madhya Pradesh' }}"/></div>
+      </div>
+      <div class="rp-divider">Contact Person</div>
+      <div class="rp-group"><label class="rp-label">Contact Name *</label><input type="text" name="contact_name" class="rp-input" placeholder="Principal / Admin name" required value="{{ form.get('contact_name','') if form else '' }}"/></div>
+      <div class="rp-row">
+        <div class="rp-group"><label class="rp-label">Email *</label><input type="email" name="contact_email" class="rp-input" placeholder="official@college.edu" required value="{{ form.get('contact_email','') if form else '' }}"/></div>
+        <div class="rp-group"><label class="rp-label">Phone</label><input type="tel" name="contact_phone" class="rp-input" placeholder="10-digit number" value="{{ form.get('contact_phone','') if form else '' }}"/></div>
+      </div>
+      <div class="rp-group"><label class="rp-label">Website</label><input type="url" name="website" class="rp-input" placeholder="https://www.college.edu" value="{{ form.get('website','') if form else '' }}"/></div>
+      <div class="rp-group"><label class="rp-label">Message <span style="font-size:.6rem;opacity:.4;">(optional)</span></label><textarea name="message" class="rp-input" rows="2" placeholder="Additional info for Super Admin" style="resize:vertical;">{{ form.get('message','') if form else '' }}</textarea></div>
+      <div class="rp-info">ℹ️ After Super Admin approval you'll receive admin credentials via email (1-2 business days).</div>
+      <button type="submit" class="rp-submit">🏫 Submit College Registration</button>
+    </form>
+    <div class="rp-links"><a href="{{ url_for('auth.login') }}">← Back to Login</a></div>
+  </div>
+</div>
+<script>
+(function(){const c=document.getElementById('rpCanvas3');const ctx=c.getContext('2d');let W,H,pts=[];const N=50,D=120;function resize(){W=c.width=window.innerWidth;H=c.height=window.innerHeight;}function P(){this.x=Math.random()*W;this.y=Math.random()*H;this.vx=(Math.random()-.5)*.4;this.vy=(Math.random()-.5)*.4;this.r=Math.random()*1.6+.7;this.a=Math.random()*.35+.12;this.t=Math.random()*Math.PI*2;}P.prototype.u=function(){this.t+=.02;this.x+=this.vx;this.y+=this.vy;if(this.x<0||this.x>W)this.vx*=-1;if(this.y<0||this.y>H)this.vy*=-1;};P.prototype.d=function(){const a=this.a*(0.7+0.3*Math.sin(this.t));ctx.beginPath();ctx.arc(this.x,this.y,this.r,0,Math.PI*2);ctx.fillStyle=`rgba(88,166,255,${a})`;ctx.fill();};function draw(){ctx.clearRect(0,0,W,H);for(let i=0;i<pts.length;i++){for(let j=i+1;j<pts.length;j++){const dx=pts[i].x-pts[j].x,dy=pts[i].y-pts[j].y,d=Math.sqrt(dx*dx+dy*dy);if(d<D){const a=(1-d/D)*.13;ctx.beginPath();ctx.moveTo(pts[i].x,pts[i].y);ctx.lineTo(pts[j].x,pts[j].y);ctx.strokeStyle=`rgba(88,166,255,${a})`;ctx.lineWidth=.65;ctx.stroke();}}}pts.forEach(p=>{p.u();p.d();});requestAnimationFrame(draw);}resize();pts=Array.from({length:N},()=>new P());draw();window.addEventListener('resize',()=>{resize();pts=Array.from({length:N},()=>new P());});})();
+</script>
+{% endblock %}

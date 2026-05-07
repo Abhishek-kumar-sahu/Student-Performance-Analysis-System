@@ -1,0 +1,244 @@
+{% extends 'base.html' %}
+{% block title %}My Profile{% endblock %}
+{% block page_title %}// <i class="fa-solid fa-user-circle"></i> My Profile{% endblock %}
+{% block content %}
+
+{# ── Profile Card ── #}
+<div class="card mb-20" style="border-color:rgba(0,204,204,.25);">
+  <div style="display:flex;align-items:flex-start;gap:24px;flex-wrap:wrap;">
+
+    {# Photo area #}
+    <div style="flex-shrink:0;text-align:center;">
+      {% if student.profile_photo %}
+      <img src="{{ student.profile_photo }}" alt="Profile"
+           style="width:90px;height:90px;border-radius:50%;object-fit:cover;border:3px solid rgba(0,204,204,.4);display:block;margin:0 auto;">
+      {% else %}
+      <div style="width:90px;height:90px;border-radius:50%;background:linear-gradient(135deg,#0d2137,#1a3a5c);
+                  border:3px solid rgba(0,204,204,.4);display:flex;align-items:center;justify-content:center;
+                  font-size:2rem;font-weight:700;color:#00cccc;margin:0 auto;">
+        {{ student.name[0].upper() }}
+      </div>
+      {% endif %}
+      <div style="margin-top:10px;">
+        <a href="{{ url_for('student.edit_profile') }}" class="btn btn-outline btn-sm">
+          <i class="fa-solid fa-pen-to-square"></i> Edit
+        </a>
+      </div>
+    </div>
+
+    {# Info #}
+    <div style="flex:1;min-width:200px;">
+      <div style="font-size:1.3rem;font-weight:800;color:#e6edf3;margin-bottom:3px;">{{ student.name }}</div>
+      <div style="font-size:.85rem;color:#00cccc;font-family:'JetBrains Mono',monospace;margin-bottom:14px;">
+        {{ student.enrollment_no }}
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:10px;font-size:.82rem;">
+        <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;">
+          <div style="color:#8b949e;font-size:.7rem;margin-bottom:2px;"><i class="fa-solid fa-user-graduate"></i> Programme</div>
+          <strong>{{ student.programme or 'BE' }}</strong>
+        </div>
+        <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;">
+          <div style="color:#8b949e;font-size:.7rem;margin-bottom:2px;"><i class="fa-solid fa-code-branch"></i> Branch</div>
+          <strong>{{ student.branch }}</strong>
+        </div>
+        <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;">
+          <div style="color:#8b949e;font-size:.7rem;margin-bottom:2px;"><i class="fa-solid fa-layer-group"></i> Semester</div>
+          <strong>{{ student.current_semester }}</strong>
+        </div>
+        <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;">
+          <div style="color:#8b949e;font-size:.7rem;margin-bottom:2px;"><i class="fa-solid fa-venus-mars"></i> Gender</div>
+          <strong>{{ student.gender or '—' }}</strong>
+        </div>
+        <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;">
+          <div style="color:#8b949e;font-size:.7rem;margin-bottom:2px;"><i class="fa-solid fa-phone"></i> Phone</div>
+          <strong>{{ student.phone or '—' }}</strong>
+        </div>
+        <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;">
+          <div style="color:#8b949e;font-size:.7rem;margin-bottom:2px;"><i class="fa-solid fa-phone-slash"></i> Parent's Phone</div>
+          <strong>{{ student.parent_phone or '—' }}</strong>
+        </div>
+        <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;grid-column:span 2;">
+          <div style="color:#8b949e;font-size:.7rem;margin-bottom:2px;"><i class="fa-solid fa-location-dot"></i> Address</div>
+          <strong style="font-size:.78rem;">{{ student.address or '—' }}</strong>
+        </div>
+        {% if col %}
+        <div style="background:rgba(255,255,255,.04);border-radius:8px;padding:8px 10px;grid-column:span 2;">
+          <div style="color:#8b949e;font-size:.7rem;margin-bottom:2px;"><i class="fa-solid fa-building-columns"></i> College</div>
+          <strong style="font-size:.78rem;">{{ col.name }}</strong>
+        </div>
+        {% endif %}
+      </div>
+
+      {% if student.bio %}
+      <div style="margin-top:12px;padding:10px 12px;background:rgba(0,204,204,.05);border-radius:6px;
+                  font-size:.82rem;color:#c9d1d9;border-left:3px solid rgba(0,204,204,.4);">
+        {{ student.bio }}
+      </div>
+      {% endif %}
+    </div>
+
+    {# Actions #}
+    <div style="display:flex;flex-direction:column;gap:8px;flex-shrink:0;min-width:160px;">
+      <a href="{{ url_for('student.download_report') }}" class="btn btn-primary btn-sm">
+        <i class="fa-solid fa-file-pdf"></i> Download Report
+      </a>
+      <a href="{{ url_for('student.notifications_page') }}" class="btn btn-outline btn-sm">
+        <i class="fa-solid fa-bell"></i> Notifications
+      </a>
+    </div>
+  </div>
+</div>
+
+{# ── Academic Summary + Chart ── #}
+{% if semesters %}
+<div class="grid-2 mb-20">
+  {# Semester table #}
+  <div class="card" style="overflow:hidden;">
+    <div class="card-hdr" style="margin-bottom:12px;">
+      <div class="card-title"><i class="fa-solid fa-table-list"></i> Academic Summary</div>
+    </div>
+    <div class="table-wrap" style="max-height:300px;overflow-y:auto;">
+      <table class="spas-table" style="font-size:.8rem;">
+        <thead>
+          <tr>
+            <th>Sem</th><th>SGPA</th><th>CGPA</th><th>Att%</th><th>Backlogs</th><th>Result</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for s in semesters %}
+          <tr>
+            <td><span class="mono fw700 text-accent">{{ s.semester_no }}</span></td>
+            <td><strong class="mono">{{ '%.2f'|format(s.sgpa or 0) }}</strong></td>
+            <td><strong class="mono text-blue">{{ '%.2f'|format(s.cgpa or 0) }}</strong></td>
+            <td {{ ('style="color:var(--red);"' if (s.attendance or 0) < 75 else 'style="color:var(--green);"')|safe }}>
+              {{ '%.1f'|format(s.attendance or 0) }}%
+            </td>
+            <td {{ ('style="color:var(--red);"' if (s.backlog_count or 0) > 0 else 'style="color:var(--text-dim);"')|safe }}>
+              {{ s.backlog_count or 0 }}
+            </td>
+            <td>
+              <span class="badge {% if s.result == 'PASS' %}badge-green{% else %}badge-red{% endif %}">
+                {{ s.result or '—' }}
+              </span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {# CGPA/SGPA mini chart #}
+  <div class="card" style="overflow:hidden;">
+    <div class="card-hdr" style="margin-bottom:12px;">
+      <div class="card-title"><i class="fa-solid fa-chart-line"></i> SGPA / CGPA Trend</div>
+    </div>
+    <div style="position:relative;height:240px;width:100%;">
+      <canvas id="profileTrendChart"></canvas>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{# ── Interventions ── #}
+<div class="card">
+  <div class="card-hdr" style="margin-bottom:14px;">
+    <div class="card-title"><i class="fa-solid fa-bullseye"></i> Interventions &amp; Support Actions</div>
+  </div>
+  {% if interventions %}
+  <div class="table-wrap">
+    <table class="spas-table" style="font-size:.8rem;">
+      <thead>
+        <tr>
+          <th>Date</th><th>Type</th><th>Assigned By</th><th>Notes</th><th>Follow-up</th><th>Status</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for i in interventions %}
+        <tr>
+          <td class="text-dim text-sm mono">{{ i.created_at[:10] }}</td>
+          <td><strong>{{ i.intervention_type }}</strong></td>
+          <td class="text-sm">{{ i.logged_by_name or '—' }}</td>
+          <td style="max-width:260px;white-space:normal;font-size:.77rem;color:#c9d1d9;">{{ i.notes or '—' }}</td>
+          <td class="text-dim text-sm">{{ i.follow_up_date or '—' }}</td>
+          <td>
+            {% if i.status == 'Completed' %}<span class="badge badge-green">Completed</span>
+            {% elif i.status == 'In Progress' %}<span class="badge badge-blue">In Progress</span>
+            {% elif i.status == 'Cancelled' %}<span class="badge badge-dim">Cancelled</span>
+            {% else %}<span class="badge badge-yellow">Pending</span>{% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  <div class="empty-state">
+    <div class="empty-state-icon"><i class="fa-solid fa-circle-check"></i></div>
+    <h3>No Interventions</h3>
+    <p>No support actions have been assigned yet. Keep up the good work!</p>
+  </div>
+  {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script id="data-sems" type="application/json">{{ semesters | map(attribute='semester_no') | list | tojson }}</script>
+<script id="data-sgpas" type="application/json">{{ semesters | map(attribute='sgpa') | list | tojson }}</script>
+<script id="data-cgpas" type="application/json">{{ semesters | map(attribute='cgpa') | list | tojson }}</script>
+<script>
+/* {% if semesters %} */
+const sems  = JSON.parse(document.getElementById('data-sems').textContent || '[]');
+const sgpas = JSON.parse(document.getElementById('data-sgpas').textContent || '[]');
+const cgpas = JSON.parse(document.getElementById('data-cgpas').textContent || '[]');
+
+const ctx = document.getElementById('profileTrendChart');
+if(ctx && sems.length > 0){
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: sems.map(s => 'Sem ' + s),
+      datasets: [
+        {
+          label: 'SGPA',
+          data: sgpas.map(v => parseFloat(v)||0),
+          borderColor: '#00cccc',
+          backgroundColor: 'rgba(0,204,204,.08)',
+          borderWidth: 2, pointRadius: 4, tension: .35, fill: true
+        },
+        {
+          label: 'CGPA',
+          data: cgpas.map(v => parseFloat(v)||0),
+          borderColor: '#a855f7',
+          backgroundColor: 'rgba(168,85,247,.05)',
+          borderWidth: 2, pointRadius: 4, tension: .35,
+          borderDash: [5,3]
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: {
+        y: {
+          min: 0, max: 10,
+          grid: { color: 'rgba(255,255,255,.05)' },
+          ticks: { color: '#8b949e', font: { size: 11 } }
+        },
+        x: {
+          grid: { display: false },
+          ticks: { color: '#8b949e', font: { size: 11 } }
+        }
+      },
+      plugins: {
+        legend: { labels: { color: '#c9d1d9', font: { size: 11 }, boxWidth: 12 } }
+      }
+    }
+  });
+}
+/* {% endif %} */
+</script>
+{% endblock %}

@@ -1,0 +1,307 @@
+{% extends 'base.html' %}
+{% block title %}SPAS — Student Performance Analysis System{% endblock %}
+{% block full_page %}
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;600;700;900&family=Share+Tech+Mono&display=swap');
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+.sp-root{position:fixed;inset:0;background:#030f1c;display:flex;align-items:center;justify-content:center;overflow:hidden;font-family:'Share Tech Mono',monospace;}
+
+/* Particle canvas */
+#spCanvas{position:absolute;inset:0;opacity:1;}
+
+/* Radial glow */
+.sp-glow{position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 50% 50%,rgba(0,210,180,.06) 0%,transparent 65%),radial-gradient(ellipse 40% 35% at 15% 80%,rgba(0,120,255,.05) 0%,transparent 55%),radial-gradient(ellipse 35% 30% at 85% 15%,rgba(0,200,255,.04) 0%,transparent 55%);animation:glowPulse 7s ease-in-out infinite alternate;}
+@keyframes glowPulse{from{opacity:.6}to{opacity:1}}
+
+/* Horizontal scan */
+.sp-scan{position:absolute;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent 0%,rgba(0,210,180,.6) 40%,rgba(0,255,220,.9) 50%,rgba(0,210,180,.6) 60%,transparent 100%);animation:hScan 7s ease-in-out infinite;pointer-events:none;}
+@keyframes hScan{0%{top:-1px;opacity:0}4%{opacity:1}95%{opacity:.4}100%{top:100%;opacity:0}}
+
+/* Corner brackets */
+.sp-brk{position:absolute;width:48px;height:48px;opacity:.5;}
+.sp-brk.tl{top:20px;left:20px;border-top:2px solid rgba(0,210,180,.75);border-left:2px solid rgba(0,210,180,.75)}
+.sp-brk.tr{top:20px;right:20px;border-top:2px solid rgba(0,210,180,.75);border-right:2px solid rgba(0,210,180,.75)}
+.sp-brk.bl{bottom:20px;left:20px;border-bottom:2px solid rgba(0,210,180,.75);border-left:2px solid rgba(0,210,180,.75)}
+.sp-brk.br{bottom:20px;right:20px;border-bottom:2px solid rgba(0,210,180,.75);border-right:2px solid rgba(0,210,180,.75)}
+
+/* HUD text */
+.sp-hud{position:absolute;font-size:.56rem;color:rgba(0,210,180,.35);letter-spacing:.12em;line-height:1.9;pointer-events:none;}
+.sp-hud.tl{top:22px;left:78px}
+.sp-hud.tr{top:22px;right:78px;text-align:right}
+.sp-hud.bl{bottom:22px;left:78px}
+.sp-hud.br{bottom:22px;right:78px;text-align:right}
+
+/* Main content */
+.sp-content{position:relative;z-index:20;text-align:center;max-width:700px;padding:0 24px;animation:fadeUp 5.1s cubic-bezier(.16,1,.3,1) forwards;opacity:0;transform:translateY(28px);}
+@keyframes fadeUp{to{opacity:1;transform:translateY(0)}}
+
+/* Logo */
+.sp-logo{display:flex;align-items:center;justify-content:center;gap:22px;margin-bottom:18px;}
+.sp-icon{
+  position:relative;width:80px;height:80px;
+  background:linear-gradient(135deg,rgba(0,210,180,.10),rgba(0,100,255,.06));
+  border:1.5px solid rgba(0,210,180,.45);
+  border-radius:18px;font-size:2.1rem;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 40px rgba(0,210,180,.22),inset 0 0 30px rgba(0,210,180,.05);
+  animation:iconPulse 3.5s ease-in-out infinite;
+}
+@keyframes iconPulse{0%,100%{box-shadow:0 0 30px rgba(0,210,180,.2),inset 0 0 20px rgba(0,210,180,.04)}50%{box-shadow:0 0 65px rgba(0,210,180,.5),0 0 120px rgba(0,210,180,.12),inset 0 0 40px rgba(0,210,180,.1)}}
+.sp-icon::after{content:'';position:absolute;inset:-1px;border-radius:21px;background:conic-gradient(from 0deg,rgba(0,210,180,.5),transparent,rgba(0,200,255,.4),transparent,rgba(0,210,180,.5));animation:borderSpin 4s linear infinite;-webkit-mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#fff 0 0) content-box,linear-gradient(#fff 0 0);mask-composite:exclude;padding:1px;}
+@keyframes borderSpin{to{transform:rotate(360deg)}}
+
+.sp-brand-name{font-family:'Orbitron',sans-serif;font-size:3.4rem;font-weight:900;color:#fff;letter-spacing:.07em;line-height:1;text-shadow:0 0 30px rgba(0,210,180,.5),0 0 70px rgba(0,210,180,.2);text-align:left;}
+.sp-brand-name em{color:#00d2b4;font-style:normal;}
+.sp-brand-sub{font-size:.6rem;color:rgba(0,210,180,.55);letter-spacing:.28em;text-transform:uppercase;margin-top:7px;text-align:left;display:flex;align-items:center;gap:6px;}
+.sp-brand-sub::before{content:'';display:inline-block;width:18px;height:1px;background:rgba(0,210,180,.45);}
+
+/* Tagline */
+.sp-tagline{font-size:.95rem;color:rgba(255,255,255,.7);letter-spacing:.03em;margin:14px 0 5px;}
+.sp-tagline strong{color:#fff;}
+.sp-dots{font-size:.7rem;color:rgba(255,255,255,.25);letter-spacing:.18em;margin-bottom:10px;}
+
+/* Status pill */
+.sp-status{display:inline-flex;align-items:center;gap:18px;background:rgba(0,210,180,.04);border:1px solid rgba(0,210,180,.18);border-radius:30px;padding:6px 22px;font-size:.62rem;color:rgba(0,210,180,.55);letter-spacing:.09em;margin-bottom:48px;}
+.sp-dot{width:6px;height:6px;background:#00d2b4;border-radius:50%;box-shadow:0 0 8px #00d2b4,0 0 16px rgba(0,210,180,.4);animation:dotBlink 1.8s ease-in-out infinite;}
+@keyframes dotBlink{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.5);opacity:.4}}
+
+/* Buttons */
+.sp-cta{display:flex;gap:18px;justify-content:center;flex-wrap:wrap;margin-bottom:52px;}
+.sp-btn{
+  position:relative;display:inline-flex;align-items:center;gap:12px;
+  padding:16px 46px;border-radius:10px;
+  font-family:'Orbitron',sans-serif;font-size:.78rem;font-weight:700;letter-spacing:.1em;
+  text-decoration:none;cursor:pointer;overflow:hidden;
+  transition:all .32s cubic-bezier(.34,1.56,.64,1);
+}
+.sp-btn::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,rgba(255,255,255,.1),transparent);opacity:0;transition:opacity .3s;}
+.sp-btn:hover::after{opacity:1}
+.sp-btn:hover{transform:translateY(-4px) scale(1.04);}
+.sp-btn:active{transform:translateY(-1px) scale(1);}
+.sp-arr{display:inline-block;transition:transform .3s;}
+.sp-btn:hover .sp-arr{transform:translateX(5px);}
+
+.sp-btn-login{background:linear-gradient(135deg,rgba(0,210,180,.16),rgba(0,100,255,.09));border:1.5px solid rgba(0,210,180,.55);color:#00d2b4;box-shadow:0 0 24px rgba(0,210,180,.18),inset 0 0 22px rgba(0,210,180,.03);}
+.sp-btn-login:hover{background:linear-gradient(135deg,rgba(0,210,180,.28),rgba(0,100,255,.16));box-shadow:0 0 50px rgba(0,210,180,.45),0 0 100px rgba(0,210,180,.1),inset 0 0 30px rgba(0,210,180,.07);color:#00d2b4;border-color:rgba(0,210,180,.9);}
+.sp-btn-register{background:linear-gradient(135deg,rgba(88,166,255,.1),rgba(0,50,160,.06));border:1.5px solid rgba(88,166,255,.45);color:#58a6ff;box-shadow:0 0 24px rgba(88,166,255,.12),inset 0 0 22px rgba(88,166,255,.02);}
+.sp-btn-register:hover{background:linear-gradient(135deg,rgba(88,166,255,.22),rgba(0,50,160,.12));box-shadow:0 0 50px rgba(88,166,255,.38),0 0 100px rgba(88,166,255,.08),inset 0 0 30px rgba(88,166,255,.06);color:#7abfff;border-color:rgba(88,166,255,.85);}
+
+/* Stats */
+.sp-stats{display:flex;border:1px solid rgba(255,255,255,.06);border-radius:16px;overflow:hidden;background:rgba(255,255,255,.015);backdrop-filter:blur(14px);}
+.sp-stat{flex:1;padding:18px 10px;text-align:center;border-right:1px solid rgba(255,255,255,.05);position:relative;overflow:hidden;}
+.sp-stat:last-child{border-right:none;}
+.sp-stat::before{content:'';position:absolute;top:0;left:0;right:0;height:1px;background:linear-gradient(90deg,transparent,rgba(0,210,180,.25),transparent);animation:scanStat 3s ease-in-out infinite;}
+.sp-stat:nth-child(1)::before{animation-delay:0s}
+.sp-stat:nth-child(2)::before{animation-delay:.75s}
+.sp-stat:nth-child(3)::before{animation-delay:1.5s}
+.sp-stat:nth-child(4)::before{animation-delay:2.25s}
+@keyframes scanStat{0%,100%{opacity:0}50%{opacity:1}}
+.sp-stat-val{font-family:'Orbitron',sans-serif;font-size:1.4rem;font-weight:900;color:#00d2b4;text-shadow:0 0 18px rgba(0,210,180,.55);line-height:1;}
+.sp-stat-lbl{font-size:.57rem;color:rgba(255,255,255,.28);text-transform:uppercase;letter-spacing:.16em;margin-top:5px;}
+
+/* Footer */
+.sp-foot{position:absolute;bottom:14px;left:0;right:0;text-align:center;font-size:.55rem;color:rgba(255,255,255,.1);letter-spacing:.12em;pointer-events:none;}
+
+@media(max-width:540px){
+  .sp-brand-name{font-size:2.3rem}
+  .sp-btn{padding:14px 28px;font-size:.7rem}
+  .sp-icon{width:64px;height:64px;font-size:1.7rem;border-radius:14px}
+  .sp-stat-val{font-size:1.05rem}
+  .sp-status{gap:10px;padding:5px 14px;font-size:.58rem}
+  .sp-hud{display:none}
+}
+</style>
+
+<div class="sp-root">
+  <canvas id="spCanvas"></canvas>
+  <div class="sp-glow"></div>
+  <div class="sp-scan"></div>
+  <div class="sp-brk tl"></div><div class="sp-brk tr"></div>
+  <div class="sp-brk bl"></div><div class="sp-brk br"></div>
+
+  <div class="sp-hud tl">
+    <div>SYS 0.0.0</div>
+    <div id="spClock">00:00:00</div>
+    <div>STATUS: ONLINE</div>
+  </div>
+  <div class="sp-hud tr">
+    <div>AI ENGINE: READY</div>
+    <div>ENCRYPTION: ON</div>
+  </div>
+  <div class="sp-hud br">
+    <div>BUILD 2025.3</div>
+    <div>UPTIME: 100%</div>
+  </div>
+
+  <div class="sp-content">
+    <div class="sp-logo">
+      <div class="sp-icon"><img src="{{ url_for('static', filename='images/SPAS_logo.png') }}" alt="SPAS Logo" style="width:58px;height:58px;object-fit:contain;border-radius:10px;filter:drop-shadow(0 0 10px rgba(0,210,180,.5));"></div>
+      <div>
+        <div class="sp-brand-name">SP<em>AS</em></div>
+      </div>
+    </div>
+
+    <div class="sp-tagline"><strong>Student Performance Analysis System</strong></div>
+    <div class="sp-dots">PREDICT &nbsp;·&nbsp; ANALYSE &nbsp;·&nbsp; INTERVENE &nbsp;·&nbsp; EXCEL</div>
+
+    <div class="sp-status">
+      <div style="display:flex;align-items:center;gap:7px;"><div class="sp-dot"></div>SYSTEM ONLINE</div>
+      <div style="color:rgba(88,166,255,.55);"><i class="fa-solid fa-bolt"></i> AI READY</div>
+      <div style="color:rgba(255,200,0,.4);"><i class="fa-solid fa-shield-halved"></i> SECURE</div>
+    </div>
+
+    <div class="sp-cta">
+      <a href="{{ url_for('auth.login') }}" class="sp-btn sp-btn-login">
+        <span><i class="fa-solid fa-lock"></i></span><span>Sign In</span><span class="sp-arr"><i class="fa-solid fa-arrow-right"></i></span>
+      </a>
+      <a href="{{ url_for('auth.register_page') }}" class="sp-btn sp-btn-register">
+        <span><i class="fa-solid fa-user-plus"></i></span><span>Register</span><span class="sp-arr"><i class="fa-solid fa-arrow-right"></i></span>
+      </a>
+    </div>
+
+    <div class="sp-stats">
+      <div class="sp-stat"><div class="sp-stat-val" data-count="1200" data-suffix="+">0</div><div class="sp-stat-lbl">Students</div></div>
+      <div class="sp-stat"><div class="sp-stat-val" data-count="48">0</div><div class="sp-stat-lbl">Colleges</div></div>
+      <div class="sp-stat"><div class="sp-stat-val" data-count="98" data-suffix="%">0</div><div class="sp-stat-lbl">AI Accuracy</div></div>
+      <div class="sp-stat"><div class="sp-stat-val" data-count="4">0</div><div class="sp-stat-lbl">User Roles</div></div>
+    </div>
+  </div>
+
+  <div class="sp-foot">SPAS &nbsp;·&nbsp; © 2025 SPAS INDIA</div>
+</div>
+
+<script>
+/* ── PARTICLE NETWORK (matches spas-3.onrender.com style) ─────────── */
+(function(){
+  const canvas = document.getElementById('spCanvas');
+  const ctx = canvas.getContext('2d');
+  let W, H, particles = [], mouse = {x: -999, y: -999};
+  const PARTICLE_COUNT = 90;
+  const MAX_DIST = 140;
+  const COLORS = ['rgba(0,210,180,', 'rgba(0,200,255,', 'rgba(88,166,255,'];
+
+  function resize(){
+    W = canvas.width = window.innerWidth;
+    H = canvas.height = window.innerHeight;
+  }
+
+  function Particle(){
+    this.x = Math.random() * W;
+    this.y = Math.random() * H;
+    this.vx = (Math.random() - 0.5) * 0.5;
+    this.vy = (Math.random() - 0.5) * 0.5;
+    this.r = Math.random() * 2 + 1;
+    this.color = COLORS[Math.floor(Math.random() * COLORS.length)];
+    this.alpha = Math.random() * 0.5 + 0.2;
+    this.pulse = Math.random() * Math.PI * 2;
+  }
+
+  Particle.prototype.update = function(){
+    this.pulse += 0.02;
+    this.x += this.vx;
+    this.y += this.vy;
+    if(this.x < 0 || this.x > W) this.vx *= -1;
+    if(this.y < 0 || this.y > H) this.vy *= -1;
+    // Mouse repel
+    const dx = this.x - mouse.x, dy = this.y - mouse.y;
+    const dist = Math.sqrt(dx*dx + dy*dy);
+    if(dist < 80){
+      this.x += dx/dist * 1.5;
+      this.y += dy/dist * 1.5;
+    }
+  };
+
+  Particle.prototype.draw = function(){
+    const a = this.alpha * (0.7 + 0.3 * Math.sin(this.pulse));
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+    ctx.fillStyle = this.color + a + ')';
+    ctx.fill();
+    // Glow
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.r * 3, 0, Math.PI * 2);
+    ctx.fillStyle = this.color + (a * 0.08) + ')';
+    ctx.fill();
+  };
+
+  function drawConnections(){
+    for(let i = 0; i < particles.length; i++){
+      for(let j = i + 1; j < particles.length; j++){
+        const dx = particles[i].x - particles[j].x;
+        const dy = particles[i].y - particles[j].y;
+        const dist = Math.sqrt(dx*dx + dy*dy);
+        if(dist < MAX_DIST){
+          const a = (1 - dist/MAX_DIST) * 0.18;
+          ctx.beginPath();
+          ctx.moveTo(particles[i].x, particles[i].y);
+          ctx.lineTo(particles[j].x, particles[j].y);
+          // Gradient line
+          const grad = ctx.createLinearGradient(particles[i].x, particles[i].y, particles[j].x, particles[j].y);
+          grad.addColorStop(0, 'rgba(0,210,180,' + a + ')');
+          grad.addColorStop(1, 'rgba(88,166,255,' + a + ')');
+          ctx.strokeStyle = grad;
+          ctx.lineWidth = 0.8;
+          ctx.stroke();
+        }
+      }
+      // Mouse connections
+      const dx = particles[i].x - mouse.x;
+      const dy = particles[i].y - mouse.y;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if(dist < MAX_DIST * 1.4){
+        const a = (1 - dist/(MAX_DIST*1.4)) * 0.35;
+        ctx.beginPath();
+        ctx.moveTo(particles[i].x, particles[i].y);
+        ctx.lineTo(mouse.x, mouse.y);
+        ctx.strokeStyle = 'rgba(0,210,180,' + a + ')';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
+  }
+
+  function init(){
+    resize();
+    particles = Array.from({length: PARTICLE_COUNT}, () => new Particle());
+  }
+
+  function loop(){
+    ctx.clearRect(0, 0, W, H);
+    drawConnections();
+    particles.forEach(p => { p.update(); p.draw(); });
+    requestAnimationFrame(loop);
+  }
+
+  init();
+  loop();
+  window.addEventListener('resize', resize);
+  document.addEventListener('mousemove', e => { mouse.x = e.clientX; mouse.y = e.clientY; });
+  document.addEventListener('mouseleave', () => { mouse.x = -999; mouse.y = -999; });
+})();
+
+/* ── HUD CLOCK ─────────────────────────────────────────────────── */
+function tick(){
+  const n = new Date();
+  const t = [n.getHours(),n.getMinutes(),n.getSeconds()].map(v=>String(v).padStart(2,'0')).join(':');
+  const el = document.getElementById('spClock');
+  if(el) el.textContent = t;
+}
+setInterval(tick, 1000); tick();
+
+/* ── COUNT-UP ──────────────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('[data-count]').forEach(el => {
+    const target = +el.dataset.count, suffix = el.dataset.suffix || '';
+    let s = null;
+    const step = ts => {
+      if(!s) s = ts;
+      const p = Math.min((ts-s)/1800, 1), e = 1-Math.pow(1-p,4);
+      el.textContent = Math.round(e*target) + suffix;
+      if(p < 1) requestAnimationFrame(step);
+    };
+    setTimeout(() => requestAnimationFrame(step), 900);
+  });
+});
+</script>
+{% endblock %}
